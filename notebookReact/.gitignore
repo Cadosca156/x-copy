@@ -12,3 +12,5 @@ coverage/
 target/
 
 .DS_Store
+
+nginx.conf

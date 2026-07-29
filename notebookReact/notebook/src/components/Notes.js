@@ -17,8 +17,7 @@ export default function Notes() {
 
     const [formOpen, setFormOpen] = useState(false);
 
-    const [scheduledNote, setScheduledNote] = useState(false);
-    const [notificationClosed, setNotificationClosed] = useState(false);
+
     const [editNote, setEditNote] = useState(false);
     const [notes,setNotes] = useState([]);
     const [note, setNote] = useState({

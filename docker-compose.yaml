@@ -17,9 +17,9 @@ services:
       - "5432:5432"
 
   backend:
-    image: notebook_backend
+    image: xcopy_backend
     build:
-      context: ./notebookbackend
+      context: ./backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,17 +31,17 @@ services:
     ports:
       - "8080:8080"
 
-  frontend:
-    image: notebook_frontend
-    build:
-      context: ./notebookReact
-    ports:
-      - "80:80"
-    environment:
-      BACKEND_HOST: backend
-      BACKEND_PORT: 8080
-    depends_on:
-      - backend
+#  frontend:
+#    image: notebook_frontend
+#    build:
+#      context: ./notebookReact
+#    ports:
+#      - "80:80"
+#    environment:
+#      BACKEND_HOST: backend
+#      BACKEND_PORT: 8080
+#    depends_on:
+#      - backend
 
 volumes:
   postgres_data:

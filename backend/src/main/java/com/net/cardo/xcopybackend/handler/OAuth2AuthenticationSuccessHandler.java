@@ -1,0 +1,40 @@
+package com.net.cardo.xcopybackend.handler;
+
+import com.net.cardo.xcopybackend.entity.User;
+import com.net.cardo.xcopybackend.repository.UserRepository;
+import com.net.cardo.xcopybackend.service.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+
+@Component
+@RequiredArgsConstructor
+public class OAuth2AuthenticationSuccessHandler
+        implements AuthenticationSuccessHandler {
+
+    private final JwtService jwtService;
+    private final UserRepository userRepository;
+
+    @Override
+    public void onAuthenticationSuccess(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication
+    ) throws IOException {
+
+        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
+
+        String email = oauth2User.getAttribute("email");
+
+        String token = jwtService.generateToken(email);
+
+        response.sendRedirect(
+                "http://localhost:5173/oauth2/success?token=" + token
+        );
+    }}

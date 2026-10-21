@@ -1,0 +1,259 @@
+.composer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(91, 112, 131, 0.45);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 70px;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.composer-modal {
+    width: 600px;
+    max-width: calc(100vw - 30px);
+    background: #000;
+    color: #e7e9ea;
+    border: 1px solid #2f3336;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.composer-header {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+}
+
+.composer-close {
+    width: 34px;
+    height: 34px;
+    border: none;
+    background: transparent;
+    color: #e7e9ea;
+    border-radius: 50%;
+    font-size: 28px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.composer-close:hover {
+    background: #181818;
+}
+
+.composer-body {
+    display: flex;
+    padding: 8px 16px 16px;
+    gap: 12px;
+}
+
+.composer-avatar {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 50%;
+    background: #1d9bf0;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+}
+
+.composer-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.composer-content textarea {
+    width: 100%;
+    min-height: 140px;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: #e7e9ea;
+    font-size: 22px;
+    font-family: inherit;
+    line-height: 1.4;
+    padding: 10px 0;
+}
+
+.composer-content textarea::placeholder {
+    color: #71767b;
+}
+
+.composer-divider {
+    border-top: 1px solid #2f3336;
+    margin-top: 12px;
+}
+
+.composer-bottom {
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.composer-tools {
+    display: flex;
+    gap: 4px;
+}
+
+.tool-button {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #1d9bf0;
+    font-weight: 600;
+}
+
+.tool-button:hover {
+    background: rgba(29, 155, 240, 0.1);
+}
+
+.composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.character-count {
+    font-size: 14px;
+    color: #71767b;
+}
+
+.character-warning {
+    color: #f4212e;
+}
+
+.publish-button {
+    border: none;
+    border-radius: 9999px;
+    padding: 10px 20px;
+    background: #eff3f4;
+    color: #0f1419;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.publish-button:hover {
+    background: #d7dbdc;
+}
+
+.publish-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.composer-error {
+    color: #f4212e;
+    font-size: 14px;
+    margin-top: 6px;
+}
+
+.image-preview {
+    position: relative;
+    margin-top: 10px;
+    border: 1px solid #2f3336;
+    border-radius: 16px;
+    overflow: hidden;
+    max-height: 400px;
+}
+
+.image-preview img,
+.image-preview video {
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    display: block;
+}
+
+.media-picker {
+    position: relative;
+}
+
+.media-picker input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.media-picker:focus-within {
+    outline: 2px solid #1d9bf0;
+    outline-offset: 2px;
+}
+
+.tool-button:disabled,
+.composer-close:disabled,
+.remove-image:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.media-hint {
+    color: #71767b;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 4px 0 0;
+}
+
+.post__video {
+    object-fit: contain;
+    background: #000;
+}
+
+.remove-image {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 20, 25, 0.75);
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+@media (max-width: 650px) {
+    .composer-overlay {
+        padding-top: 0;
+        align-items: stretch;
+    }
+
+    .composer-modal {
+        width: 100%;
+        max-width: none;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        overflow-y: auto;
+    }
+
+    .composer-bottom {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .composer-content textarea {
+        font-size: 19px;
+    }
+}

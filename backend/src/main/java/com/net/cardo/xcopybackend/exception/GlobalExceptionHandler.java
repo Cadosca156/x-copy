@@ -1,14 +1,25 @@
 package com.net.cardo.xcopybackend.exception;
 
-import com.net.cardo.xcopybackend.dto.response.ErrorResponse;
+import com.net.cardo.xcopybackend.auth.dto.response.ErrorResponse;
 import com.net.cardo.xcopybackend.exception.exceptions.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.server.ResponseStatusException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(new ErrorResponse(
+                        ex.getReason(),
+                        ex.getStatusCode().value(),
+                        System.currentTimeMillis()
+                ));
+    }
 
 
     @ExceptionHandler(EmailAlreadyExistsException.class)

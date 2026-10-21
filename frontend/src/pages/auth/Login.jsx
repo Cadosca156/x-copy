@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "../../styles/Login.css";
-import  {loginUser} from "../../utils/AuthDBStorage.js"
+import  {loginUser} from "../../api/authApi.js";
 import { useNavigate } from "react-router-dom";
 export default function Login() {
   const [login, setLogin] = useState({
@@ -84,6 +84,9 @@ export default function Login() {
               />
             </label>
 
+              <button className="forgot-password-button" type="button" onClick={() => navigate("/reset-password-email")}>
+                  Забув пароль?
+              </button>
             <button
                 className={`continue-button ${login.password ? "enabled" : ""}`}
                 type="button"

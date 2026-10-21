@@ -1,0 +1,53 @@
+
+.resend-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 22px;
+    margin-top: 20px;
+}
+
+.resend-button {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #1d9bf0;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.resend-button:hover {
+    color: #8ecdf8;
+    text-decoration: underline;
+}
+
+.two-factor-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+
+    padding: 12px 18px;
+    border-radius: 8px;
+
+    background: #202327;
+    color: #e7e9ea;
+
+    font-size: 14px;
+    font-weight: 500;
+
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+
+    z-index: 1000;
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .two-factor-toast {
+        max-width: calc(100% - 32px);
+        white-space: normal;
+        text-align: center;
+    }
+}

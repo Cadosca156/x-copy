@@ -1,0 +1,13 @@
+.setup-profile-page { min-height: 100svh; display: grid; place-items: center; padding: 24px; background: #000; color: #eff3f4; text-align: left; }
+.setup-profile-card { width: min(100%, 460px); padding: 32px; border: 1px solid #2f3336; border-radius: 20px; }
+.setup-profile-logo { font-size: 32px; color: #fff; }
+.setup-profile-card h1 { font-size: 30px; line-height: 1.2; color: #eff3f4; letter-spacing: normal; margin: 24px 0 12px; }
+.setup-profile-card > p { font-size: 15px; color: #71767b; }
+.setup-profile-card form { display: grid; gap: 20px; margin-top: 28px; }
+.setup-profile-card label { display: grid; gap: 8px; font-size: 14px; }
+.setup-profile-card input { width: 100%; padding: 14px; border: 1px solid #536471; border-radius: 8px; background: transparent; color: #eff3f4; }
+.setup-profile-card input:focus { outline: 2px solid #1d9bf0; }
+.setup-profile-card button { padding: 12px; border-radius: 30px; background: #eff3f4; color: #0f1419; font-weight: 700; }
+.setup-profile-card button:disabled { opacity: .5; cursor: default; }
+.setup-profile-error { color: #f4212e; font-size: 14px; }
+@media (max-width: 480px) { .setup-profile-card { padding: 24px 16px; } }

@@ -20,7 +20,7 @@
 .profile-photo-actions { display: flex; gap: 12px; margin-bottom: 20px; }
 .profile-settings form { display: grid; justify-items: start; margin-top: 24px; }
 .profile-name-label { font-size: 14px; margin-bottom: 8px; }
-.profile-settings input[type="text"], .profile-settings input:not([type]) { width: 100%; padding: 14px; border: 1px solid #536471; border-radius: 8px; background: #000; color: #eff3f4; outline: none; }
+.profile-settings input[type="text"] { width: 100%; padding: 14px; border: 1px solid #536471; border-radius: 8px; background: #000; color: #eff3f4; outline: none; }
 .profile-settings input:focus { border-color: #1d9bf0; box-shadow: 0 0 0 1px #1d9bf0; }
 .profile-save, .profile-load-error button { padding: 10px 20px; border-radius: 30px; background: #eff3f4; color: #0f1419; font-weight: 700; font-size: 14px; }
 .profile-save:disabled { opacity: .45; cursor: default; }
@@ -34,14 +34,5 @@
 .profile-post-meta strong { overflow-wrap: anywhere; }
 .profile-post-meta span, .profile-post-meta time { color: #71767b; }
 .profile-page .timeline-message a { color: #1d9bf0; }
-@media (max-width: 800px) {
-    .profile-page { grid-template-columns: 64px minmax(0, 600px); gap: 0; }
-    .profile-navigation { padding: 8px 2px; }
-    .profile-navigation span { display: none; }
-}
-@media (max-width: 640px) {
-    .profile-page { display: block; padding-bottom: 64px; }
-    .profile-navigation { position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 5; height: 60px; background: #000e; border-top: 1px solid #2f3336; flex-direction: row; justify-content: space-around; }
-    .profile-details { padding-inline: 16px; }
-    .profile-cover { height: 130px; }
-}
+@media (max-width: 800px) { .profile-page { grid-template-columns: 64px minmax(0, 600px); gap: 0; } .profile-navigation { padding: 8px 2px; } .profile-navigation span { display: none; } }
+@media (max-width: 640px) { .profile-page { display: block; padding-bottom: 64px; } .profile-navigation { position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 5; height: 60px; background: #000e; border-top: 1px solid #2f3336; flex-direction: row; justify-content: space-around; } .profile-details { padding-inline: 16px; } .profile-cover { height: 130px; } }

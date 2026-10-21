@@ -1,0 +1,125 @@
+package com.net.cardo.xcopybackend.post.service;
+
+import com.net.cardo.xcopybackend.post.dto.response.PostResponse;
+import com.net.cardo.xcopybackend.post.entity.Post;
+import com.net.cardo.xcopybackend.post.repository.CommentRepository;
+import com.net.cardo.xcopybackend.post.repository.LikeRepository;
+import com.net.cardo.xcopybackend.post.repository.PostRepository;
+import com.net.cardo.xcopybackend.user.entity.User;
+import com.net.cardo.xcopybackend.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class PostService {
+
+    private final PostRepository postRepository;
+    private final LikeRepository likeRepository;
+    private final CommentRepository commentRepository;
+    private final UserRepository userRepository;
+    private final MediaStorageService mediaStorageService;
+    private final FeedCacheService feedCacheService;
+
+
+
+
+    private PostResponse toResponse(Post post, String currentUserId) {
+
+        User author = userRepository.findById(
+                UUID.fromString(post.getUserId())
+        ).orElseThrow(() -> new RuntimeException("Author not found"));
+
+        long likesCount = likeRepository.countByPostId(post.getId());
+
+        long commentsCount = commentRepository.countByPostId(post.getId());
+
+        boolean likedByMe = likeRepository.existsByPostIdAndUserId(
+                post.getId(),
+                currentUserId
+        );
+
+        return new PostResponse(
+                post.getId(),
+                post.getUserId(),
+                author.getUsername(),
+                author.getDisplayName(),
+                post.getContent(),
+                post.getMediaType(),
+                post.getMediaUrl(),
+                post.getCreatedAt(),
+                likesCount,
+                commentsCount,
+                likedByMe,
+                author.getAvatarUrl()
+        );
+    }
+    public PostResponse createPost(
+            UUID userId,
+            String content,
+            org.springframework.web.multipart.MultipartFile file
+    ) {
+        Post post = new Post();
+
+        post.setUserId(userId.toString());
+        post.setContent(content);
+        post.setCreatedAt(LocalDateTime.now());
+
+        if (file != null && !file.isEmpty()) {
+            MediaStorageService.StoredMedia media = mediaStorageService.store(file);
+            post.setMediaUrl(media.url());
+            post.setMediaType(media.contentType());
+        }
+
+        Post savedPost = postRepository.save(post);
+        feedCacheService.invalidate();
+
+        return toResponse(
+                savedPost,
+                userId.toString()
+        );
+    }
+
+    @Cacheable(
+            cacheNames = FeedCacheService.CACHE_NAME,
+            key = "'all:' + #a0",
+            sync = true
+    )
+    public List<PostResponse> getPosts(String currentUserId) {
+
+        return postRepository
+                .findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(post -> toResponse(post, currentUserId))
+                .toList();
+    }
+
+    @Cacheable(
+            cacheNames = FeedCacheService.CACHE_NAME,
+            key = "'user:' + #a0 + ':viewer:' + #a1",
+            sync = true
+    )
+    public List<PostResponse> getUserPosts(
+            String userId,
+            String currentUserId
+    ) {
+        return postRepository
+                .findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(post -> toResponse(post, currentUserId))
+                .toList();
+    }
+
+    public void deletePost(String id) {
+        postRepository.findById(id).ifPresent(post -> {
+            postRepository.delete(post);
+            mediaStorageService.delete(post.getMediaUrl());
+            feedCacheService.invalidate();
+        });
+    }
+}

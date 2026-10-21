@@ -1,0 +1,225 @@
+/* TwoFA.css */
+
+.two-factor-page {
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #000;
+    color: #e7e9ea;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.two-factor-card {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.password-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 42px;
+    margin-bottom: 30px;
+}
+
+.back-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: #e7e9ea;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+    background-color: #181818;
+}
+
+.login-logo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #e7e9ea;
+}
+
+.two-factor-form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.two-factor-form h1 {
+    margin: 0 0 12px;
+    color: #e7e9ea;
+    font-size: 30px;
+    line-height: 1.25;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.two-factor-form p {
+    margin: 0 0 28px;
+    color: #71767b;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.otp-inputs {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    margin: 4px 0 28px;
+}
+
+.otp-input {
+    flex: 1;
+    min-width: 0;
+    height: 58px;
+    padding: 0;
+    box-sizing: border-box;
+    border: 1px solid #333639;
+    border-radius: 8px;
+    outline: none;
+    background: #000;
+    color: #e7e9ea;
+    font-size: 24px;
+    font-weight: 600;
+    text-align: center;
+    caret-color: #1d9bf0;
+    transition: border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.otp-input:hover {
+    border-color: #71767b;
+}
+
+.otp-input:focus {
+    border-color: #1d9bf0;
+    box-shadow: 0 0 0 1px #1d9bf0;
+}
+
+.login-submit {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 9999px;
+    background: #eff3f4;
+    color: #0f1419;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.1s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+    background: #d7dbdc;
+}
+
+.login-submit:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.login-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.two-factor-help {
+    align-self: flex-start;
+    margin-top: 24px;
+    color: #1d9bf0;
+    font-size: 14px;
+    text-decoration: none;
+    transition: text-decoration 0.2s ease;
+}
+
+.two-factor-help:hover {
+    text-decoration: underline;
+}
+.resend-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 22px;
+    margin-top: 20px;
+}
+
+.resend-button {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #1d9bf0;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.resend-button:hover {
+    color: #8ecdf8;
+    text-decoration: underline;
+}
+
+.resend-timer {
+    color: #71767b;
+    font-size: 14px;
+    font-weight: 400;
+}
+/* Адаптація для телефонів */
+
+@media (max-width: 480px) {
+    .two-factor-page {
+        align-items: flex-start;
+        padding: 24px;
+    }
+
+    .two-factor-card {
+        max-width: 100%;
+    }
+
+    .password-header {
+        margin-bottom: 28px;
+    }
+
+    .two-factor-form h1 {
+        font-size: 27px;
+    }
+
+    .otp-inputs {
+        gap: 7px;
+    }
+
+    .otp-input {
+        height: 52px;
+        font-size: 21px;
+        border-radius: 7px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .back-button,
+    .otp-input,
+    .login-submit,
+    .two-factor-help {
+        transition: none;
+    }
+}

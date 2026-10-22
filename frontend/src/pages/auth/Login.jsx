@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import "../../styles/Login.css";
 import  {loginUser} from "../../api/authApi.js";
 import { useNavigate } from "react-router-dom";
@@ -8,14 +8,21 @@ export default function Login() {
     password: "",
   });
   const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const handleLogin = async (login) => {
-
-    const result = await loginUser(login);
-
-    if (result.response.ok) {
+    if (isLoggingIn) return;
+    setError('');
+    setIsLoggingIn(true);
+    try {
+      const result = await loginUser({ ...login, email: login.email.trim() });
       const data = await result.response.json();
-
-      navigate(`/2fa?userId=${data.userId}`);
+      if (!data.userId) throw new Error('Сервер повернув некоректну відповідь входу');
+      navigate(`/2fa?userId=${encodeURIComponent(data.userId)}`);
+    } catch (failure) {
+      setError(failure.message || 'Не вдалося з’єднатися із сервером');
+    } finally {
+      setIsLoggingIn(false);
     }
   }
 
@@ -68,6 +75,8 @@ export default function Login() {
                     email: e.target.value
                   })}
                   autoComplete="email"
+                  type="email"
+                  disabled={isLoggingIn}
                   spellCheck="false"
               />
             </label>
@@ -79,7 +88,9 @@ export default function Login() {
                     ...login,
                     password: e.target.value
                   })}
-                  autoComplete="password"
+                  autoComplete="current-password"
+                  type="password"
+                  disabled={isLoggingIn}
                   spellCheck="false"
               />
             </label>
@@ -90,13 +101,14 @@ export default function Login() {
             <button
                 className={`continue-button ${login.password ? "enabled" : ""}`}
                 type="button"
-                disabled={!login.password}
+                disabled={!login.email.trim() || !login.password || isLoggingIn}
                 onClick={() => {
                   handleLogin(login)
                 }}
             >
-              Продолжить
+              {isLoggingIn ? 'Входимо…' : 'Продолжить'}
             </button>
+            {error && <p className="login-error" role="alert">{error}</p>}
 
             <p className="legal">
               Продолжая, ты соглашаешься с нашими{" "}

@@ -1,6 +1,7 @@
 package com.net.cardo.xcopybackend.passwordreset.service;
 
 import com.net.cardo.xcopybackend.email.EmailService;
+import com.net.cardo.xcopybackend.config.FrontendLinks;
 
 import com.net.cardo.xcopybackend.passwordreset.dto.request.ResetPasswordRequest;
 import com.net.cardo.xcopybackend.passwordreset.entity.PasswordResetToken;
@@ -24,6 +25,7 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final FrontendLinks frontendLinks;
 
 
      public void forgotPassword(ForgotPasswordRequest request) {
@@ -48,7 +50,7 @@ public class PasswordResetService {
         passwordResetTokenRepository.save(resetToken);
 
          String resetLink =
-                 "http://localhost:5173/reset-password?token=" + token;
+                 frontendLinks.resetPassword(token);
          emailService.sendEmail(
                  user.getEmail(),
                  "Reset password",

@@ -1,7 +1,7 @@
 package com.net.cardo.xcopybackend.auth.handler;
 
 import com.net.cardo.xcopybackend.security.JwtService;
-import com.net.cardo.xcopybackend.user.repository.UserRepository;
+import com.net.cardo.xcopybackend.config.FrontendLinks;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,7 +19,7 @@ public class OAuth2AuthenticationSuccessHandler
         implements AuthenticationSuccessHandler {
 
     private final JwtService jwtService;
-    private final UserRepository userRepository;
+    private final FrontendLinks frontendLinks;
 
     @Override
     public void onAuthenticationSuccess(
@@ -35,6 +35,6 @@ public class OAuth2AuthenticationSuccessHandler
         String token = jwtService.generateToken(email);
 
         response.sendRedirect(
-                "http://localhost:5173/oauth2/success?token=" + token
+                frontendLinks.oauthSuccess(token)
         );
     }}

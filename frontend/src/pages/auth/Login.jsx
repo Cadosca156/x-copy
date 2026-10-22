@@ -42,7 +42,8 @@ export default function Login() {
 
             <button className="auth-button" type="button"
                     onClick={() => {
-                      window.location.href = "http://localhost:8080/oauth2/authorization/google";
+                      const oauthBase = (import.meta.env.VITE_OAUTH_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+                      window.location.href = `${oauthBase}/oauth2/authorization/google`;
                     }}>
             <span className="google-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">

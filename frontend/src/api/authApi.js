@@ -1,44 +1,23 @@
-import {data} from "react-router-dom";
-
 export async function loginUser(login) {
-    try {
-
-
-        const response = await fetch(`/api/auth/login`, {
-
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(
-                login
-            )
-        });
-
-        if (response.status === 404) {
-            throw new Error("User not found");
+    const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(login),
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        let message = `Не вдалося увійти (HTTP ${response.status})`;
+        try {
+            const error = JSON.parse(text);
+            message = error.message || error.detail || message;
+        } catch {
+            if (text.trim() === 'Invalid CORS request') {
+                message = 'Сервер не дозволяє вхід із цього сайту. Потрібно оновити налаштування CORS бекенду.';
+            }
         }
-
-        if (response.ok) {
-            console.log("LOGIN USER:", response.ok)
-
-
-        }
-
-
-        console.log("STATUS:", response.status);
-        console.log("URL:", response.url);
-
-        const text = await response;
-        console.log("RESPONSE:", text);
-
-        return {response};
-
-
-    } catch (error) {
-        console.log(error);
-
+        throw new Error(message);
     }
+    return { response };
 }
 export async function twoFactorVerify(userId,code) {
     try {

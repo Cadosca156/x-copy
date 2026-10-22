@@ -13,14 +13,12 @@ services:
       start_period: 30s
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+
   mongodb:
     image: mongo:8
     container_name: xcopymdb
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+
     healthcheck:
       test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
@@ -32,8 +30,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
+
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -52,6 +49,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - media_data:/app/uploads
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${PSQL_NAME}
       SPRING_DATASOURCE_USERNAME: ${PSQL_USER}
@@ -60,12 +63,11 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MONGODB_URI: mongodb://mongodb:27017/${MDB_NAME}
-      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST}
       SPRING_DATA_REDIS_PORT: 6379
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-    ports:
-      - "8080:8080"
+
 
 #  frontend:
 #    image: notebook_frontend
@@ -83,3 +85,4 @@ volumes:
   postgres_data:
   mongodb_data:
   redis_data:
+  media_data:

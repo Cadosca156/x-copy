@@ -51,7 +51,6 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
-      - "8080:8080"
     restart: unless-stopped
     volumes:
       - media_data:/app/uploads
@@ -63,10 +62,14 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MONGODB_URI: mongodb://mongodb:27017/${MDB_NAME}
-      SPRING_DATA_REDIS_HOST: ${REDIS_HOST}
+      SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      APP_FRONTEND_URL: ${FRONTEND_URL:-https://main.d2s4oyee9a0d3l.amplifyapp.com}
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://18-197-16-216.nip.io/login/oauth2/code/google}
 
 
 #  frontend:

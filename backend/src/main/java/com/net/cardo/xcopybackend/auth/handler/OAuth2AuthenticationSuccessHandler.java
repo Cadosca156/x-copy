@@ -1,11 +1,12 @@
 package com.net.cardo.xcopybackend.auth.handler;
 
 import com.net.cardo.xcopybackend.security.JwtService;
-import com.net.cardo.xcopybackend.config.FrontendLinks;
+import com.net.cardo.xcopybackend.user.repository.UserRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -19,8 +20,9 @@ public class OAuth2AuthenticationSuccessHandler
         implements AuthenticationSuccessHandler {
 
     private final JwtService jwtService;
-    private final FrontendLinks frontendLinks;
-
+    private final UserRepository userRepository;
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
@@ -35,6 +37,6 @@ public class OAuth2AuthenticationSuccessHandler
         String token = jwtService.generateToken(email);
 
         response.sendRedirect(
-                frontendLinks.oauthSuccess(token)
+                frontendUrl.replaceAll("/+$", "") + "/oauth2/success?token=" + token
         );
     }}

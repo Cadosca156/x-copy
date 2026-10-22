@@ -422,3 +422,11 @@
     width: 100%;
   }
 }
+.login-error {
+  width: min(100%, 340px);
+  margin: 12px 0;
+  color: #f4212e;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}

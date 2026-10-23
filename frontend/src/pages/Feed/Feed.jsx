@@ -178,11 +178,17 @@ function Post({ post, onDelete }) {
     const [isPostingComment, setIsPostingComment] = useState(false);
     const [deletingCommentId, setDeletingCommentId] = useState(null);
 
-    useEffect(() => {
+    const [previousPost, setPreviousPost] = useState(post);
+
+    // Sync refreshed server values before rendering, preserving local interaction state.
+    if (previousPost.id !== post.id || previousPost.liked !== post.liked
+        || previousPost.hasLikedStatus !== post.hasLikedStatus
+        || previousPost.likes !== post.likes || previousPost.replies !== post.replies) {
+        setPreviousPost(post);
         setLiked(post.hasLikedStatus ? post.liked : isPostStoredAsLiked(post.id));
         setLikesCount(post.likes);
         setCommentsCount(post.replies);
-    }, [post.id, post.liked, post.hasLikedStatus, post.likes, post.replies]);
+    }
 
     const loadComments = async () => {
         setIsLoadingComments(true);

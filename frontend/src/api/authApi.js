@@ -53,7 +53,7 @@ export async function twoFactorVerify(userId,code) {
 }
 export async function twoFactorResend(userId) {
     try {
-        const response = await fetch("/api/auth/send-code", {
+        await fetch("/api/auth/send-code", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

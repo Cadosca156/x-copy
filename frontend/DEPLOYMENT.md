@@ -4,6 +4,78 @@ Frontend: https://main.d2s4oyee9a0d3l.amplifyapp.com
 
 Backend: https://18-197-16-216.nip.io
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request, and can also be
+started manually from GitHub Actions.
+
+- `Frontend checks`: Node.js 24, `npm ci`, ESLint with zero warnings, and the
+  production Vite build.
+- `Backend checks`: Java 21 runs Gradle 9, Java 17 compiles the application,
+  and `check bootJar` runs all tests and builds the executable JAR. Temporary
+  PostgreSQL 16, MongoDB 8, and Redis 7 services support the application context
+  test. All credentials in this job are disposable CI values; GitHub Secrets
+  and production services are not required.
+
+Commit and push the workflow together with the accompanying source fixes to
+activate these checks on GitHub. Their results appear under Actions and on pull
+requests. Pushes to `main` also deploy the backend after both checks pass.
+To require passing checks before merging, configure branch protection separately
+with the `Frontend checks` and `Backend checks` statuses after their first run.
+
+## Automatic backend deployment
+
+The `Deploy backend to Lightsail` job runs only for `main`, after both CI jobs
+succeed. It also runs when the workflow is manually started on `main`. Pull
+requests and other branches only run checks. Changes developed on `Func` must
+be merged into `main` to deploy.
+
+Create these repository secrets under Settings > Secrets and variables > Actions:
+
+| Secret | Value |
+| --- | --- |
+| `LIGHTSAIL_HOST` | `18.197.16.216` (update if the public IP changes) |
+| `LIGHTSAIL_USER` | `ubuntu` |
+| `LIGHTSAIL_SSH_KEY` | Complete private deployment key, without a passphrase |
+| `LIGHTSAIL_KNOWN_HOSTS` | Trusted server public host key in known_hosts format |
+
+Obtain the last value in the authenticated Lightsail browser SSH terminal:
+
+```bash
+printf '18.197.16.216 '; cut -d ' ' -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+Copy the single output line into `LIGHTSAIL_KNOWN_HOSTS`. This is a public host
+key, not the deployment private key. Deployment requires strict host verification.
+
+The server must have the existing `~/x-copy/.env`, Docker with the Compose plugin,
+`curl`, `flock`, and passwordless access to the Docker commands via `sudo -n`.
+Verify in the server terminal:
+
+```bash
+test -f ~/x-copy/.env && echo 'Server configuration exists'
+sudo -n docker info > /dev/null && echo 'Docker access works'
+sudo -n docker compose version
+command -v curl flock timeout
+```
+
+SSH on port 22 must be reachable from the GitHub runner. If the Lightsail firewall
+only allows your home IP, use a runner with a fixed permitted IP or a runner
+inside the server network before expecting hosted GitHub runners to connect.
+
+CI uploads the tested executable JAR and transfers it with the matching Dockerfile
+and Compose configuration over SSH. Releases live in `~/.cache/xcopy-deploy/<SHA>`.
+The server builds the Docker image from that bundle, keeps the existing Compose
+project directory `~/x-copy` and its database/media volumes, and updates the backend
+and its dependencies with `up -d --no-build backend`. No GitHub credentials or
+Gradle installation are needed on the server. The server's Git checkout is not
+updated by this process; the release bundle supplies the deployed configuration.
+
+The job waits for `http://127.0.0.1:8080/api/users/me` to return the expected 401.
+A failed deployment makes the Actions job fail. Automatic rollback is not configured.
+Deployments run one at a time and new pushes do not interrupt an active deployment.
+Old release directories and Docker images are retained and require occasional cleanup.
+
 ## Google OAuth client
 
 In Google Cloud Console, open the OAuth client matching GOOGLE_CLIENT_ID in the server's .env.

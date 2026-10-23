@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   frontend:
@@ -105,3 +105,40 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
       - name: Test and build executable JAR
         run: bash ./gradlew --no-daemon check bootJar
+      - name: Save tested application
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-jar
+          path: |
+            backend/build/libs/*.jar
+            !backend/build/libs/*-plain.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy backend to Lightsail
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: lightsail-production
+      cancel-in-progress: false
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Download tested application
+        uses: actions/download-artifact@v8
+        with:
+          name: backend-jar
+          path: deploy-artifact
+      - name: Deploy and verify backend
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: bash .github/scripts/deploy-lightsail.sh

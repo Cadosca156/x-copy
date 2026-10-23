@@ -4,25 +4,6 @@ Frontend: https://main.d2s4oyee9a0d3l.amplifyapp.com
 
 Backend: https://18-197-16-216.nip.io
 
-## Continuous integration
-
-`.github/workflows/ci.yml` runs on every push and pull request, and can also be
-started manually from GitHub Actions.
-
-- `Frontend checks`: Node.js 24, `npm ci`, ESLint with zero warnings, and the
-  production Vite build.
-- `Backend checks`: Java 21 runs Gradle 9, Java 17 compiles the application,
-  and `check bootJar` runs all tests and builds the executable JAR. Temporary
-  PostgreSQL 16, MongoDB 8, and Redis 7 services support the application context
-  test. All credentials in this job are disposable CI values; GitHub Secrets
-  and production services are not required.
-
-Commit and push the workflow together with the accompanying source fixes to
-activate these checks on GitHub. Their results appear under Actions and on pull
-requests. Deployment remains separate; these checks do not update Lightsail.
-To require passing checks before merging, configure branch protection separately
-with the `Frontend checks` and `Backend checks` statuses after their first run.
-
 ## Google OAuth client
 
 In Google Cloud Console, open the OAuth client matching GOOGLE_CLIENT_ID in the server's .env.

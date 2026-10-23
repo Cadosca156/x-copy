@@ -20,6 +20,7 @@ public class OAuth2AuthenticationSuccessHandler
 
     private final JwtService jwtService;
     private final FrontendLinks frontendLinks;
+
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,

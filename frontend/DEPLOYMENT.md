@@ -131,6 +131,13 @@ If git pull reports conflicts with server edits to Compose, resolve them while r
 
 ## Verify
 
+Password reset links use `/reset-password?token=...`. The page must submit that
+exact token to `/api/auth/password/reset`; `userId` is not a reset token.
+Missing, unknown, expired, or already used tokens return HTTP 400 with an error
+message and must never display success. A successful reset updates the password
+and consumes the token in one transaction. Verify that the new password works,
+the old password fails, and the same reset link cannot be reused.
+
 ```bash
 curl --max-time 15 -i https://18-197-16-216.nip.io/api/users/me
 ```

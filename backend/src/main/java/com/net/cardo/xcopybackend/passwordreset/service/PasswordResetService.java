@@ -11,6 +11,10 @@ import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+import java.nio.charset.StandardCharsets;
 
 
 import java.time.LocalDateTime;
@@ -58,40 +62,56 @@ public class PasswordResetService {
          );
      }
 
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+
+        if (request == null || request.getToken() == null || request.getToken().isBlank()) {
+            throw invalidResetLink();
+        }
+        String password = request.getNewPassword();
+        if (password == null || password.isBlank() || password.length() < 8
+                || password.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Пароль має містити щонайменше 8 символів і не перевищувати 72 байти.");
+        }
 
         Optional<PasswordResetToken> optionalToken =
                 passwordResetTokenRepository.findByToken(request.getToken());
 
         if (optionalToken.isEmpty()) {
-            return;
+            throw invalidResetLink();
         }
 
         PasswordResetToken resetToken = optionalToken.get();
 
         if (resetToken.isUsed()) {
-            return;
+            throw invalidResetLink();
         }
 
-        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            return;
+        if (resetToken.getExpiryDate() == null || !resetToken.getExpiryDate().isAfter(LocalDateTime.now())) {
+            throw invalidResetLink();
         }
         Optional<User> optionalUser =
                 userRepository.findById(resetToken.getUserId());
 
         if (optionalUser.isEmpty()) {
-            return;
+            throw invalidResetLink();
         }
 
         User user = optionalUser.get();
 
-        String hashedPassword = passwordEncoder.encode(request.getNewPassword());
+        String hashedPassword = passwordEncoder.encode(password);
         user.setPassword(hashedPassword);
 
         userRepository.save(user);
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
 
+    }
+
+    private ResponseStatusException invalidResetLink() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Посилання для зміни пароля недійсне або вже використане. Запросіть новий лист.");
     }
 
 }

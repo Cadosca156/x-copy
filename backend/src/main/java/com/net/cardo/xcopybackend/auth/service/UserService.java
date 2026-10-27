@@ -32,10 +32,9 @@ public class UserService {
 
             user = optionalUser.get();
 
-            String storedPassword = user.getPassword();
-            if (storedPassword == null || storedPassword.isBlank() || !passwordEncoder.matches(
+            if (!passwordEncoder.matches(
                     request.password(),
-                    storedPassword
+                    user.getPassword()
             )) {
                 throw new InvalidPasswordException();
             }

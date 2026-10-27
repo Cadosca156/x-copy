@@ -6,6 +6,6 @@ public class InvalidPasswordException extends RuntimeException {
     }
 
     public InvalidPasswordException() {
-        super("Неправильний email або пароль. Спробуйте вхід через Google або відновіть пароль.");
+
     }
 }

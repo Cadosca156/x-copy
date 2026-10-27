@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: xcopy_ci
+          POSTGRES_USER: xcopy_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xcopy_ci -d xcopy_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping: 1})'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/xcopy_ci
+      PSQL_USER: xcopy_ci
+      PSQL_PASSWORD: ci-only-password
+      MONGODB_URI: mongodb://localhost:27017/xcopy_ci
+      REDIS_HOST: localhost
+      REDIS_PORT: '6379'
+      GOOGLE_CLIENT_ID: ci-client-id
+      GOOGLE_CLIENT_SECRET: ci-client-secret
+      MAIL_USERNAME: ci@example.test
+      MAIL_PASSWORD: ci-only-password
+      SPRING_MAIL_HOST: localhost
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Java toolchain and Gradle runtime
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+      - name: Set up Gradle and validate wrapper
+        uses: gradle/actions/setup-gradle@v6
+      - name: Test and build executable JAR
+        run: bash ./gradlew --no-daemon check bootJar
+      - name: Save tested application
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-jar
+          path: |
+            backend/build/libs/*.jar
+            !backend/build/libs/*-plain.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy backend to Lightsail
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: lightsail-production
+      cancel-in-progress: false
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Download tested application
+        uses: actions/download-artifact@v8
+        with:
+          name: backend-jar
+          path: deploy-artifact
+      - name: Deploy and verify backend
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: bash .github/scripts/deploy-lightsail.sh

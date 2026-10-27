@@ -131,6 +131,11 @@ If git pull reports conflicts with server edits to Compose, resolve them while r
 
 ## Verify
 
+MongoDB posts can outlive their PostgreSQL author. Such posts are retained and
+displayed as belonging to a deleted user, so removing one account does not break
+the entire feed. A token for a deleted account returns 401; sign in again after
+recreating an account.
+
 Password reset links use `/reset-password?token=...`. The page must submit that
 exact token to `/api/auth/password/reset`; `userId` is not a reset token.
 Missing, unknown, expired, or already used tokens return HTTP 400 with an error

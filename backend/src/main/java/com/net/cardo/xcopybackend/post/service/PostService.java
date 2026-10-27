@@ -31,9 +31,7 @@ public class PostService {
 
     private PostResponse toResponse(Post post, String currentUserId) {
 
-        User author = userRepository.findById(
-                UUID.fromString(post.getUserId())
-        ).orElseThrow(() -> new RuntimeException("Author not found"));
+        User author = findAuthor(post.getUserId());
 
         long likesCount = likeRepository.countByPostId(post.getId());
 
@@ -47,8 +45,8 @@ public class PostService {
         return new PostResponse(
                 post.getId(),
                 post.getUserId(),
-                author.getUsername(),
-                author.getDisplayName(),
+                author == null ? "deleted" : author.getUsername(),
+                author == null ? "Видалений користувач" : author.getDisplayName(),
                 post.getContent(),
                 post.getMediaType(),
                 post.getMediaUrl(),
@@ -56,8 +54,20 @@ public class PostService {
                 likesCount,
                 commentsCount,
                 likedByMe,
-                author.getAvatarUrl()
+                author == null ? null : author.getAvatarUrl()
         );
+    }
+
+    private User findAuthor(String userId) {
+        if (userId == null) return null;
+        UUID authorId;
+        try {
+            authorId = UUID.fromString(userId);
+        } catch (IllegalArgumentException invalidId) {
+            return null;
+        }
+        // MongoDB posts can outlive their PostgreSQL author.
+        return userRepository.findById(authorId).orElse(null);
     }
     public PostResponse createPost(
             UUID userId,

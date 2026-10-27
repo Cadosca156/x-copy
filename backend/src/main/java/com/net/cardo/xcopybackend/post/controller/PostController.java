@@ -84,7 +84,7 @@ public class PostController {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found")
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову")
                 );
 
         List<PostResponse> posts =
@@ -109,7 +109,7 @@ public class PostController {
         }
 
         User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову"));
 
         return ResponseEntity.ok(
                 postService.getUserPosts(
@@ -145,7 +145,7 @@ public class PostController {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found")
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову")
                 );
 
         boolean liked = likeService.toggleLike(

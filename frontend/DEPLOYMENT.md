@@ -9,9 +9,11 @@ Backend: https://18-197-16-216.nip.io
 `.github/workflows/ci.yml` runs on every push and pull request, and can also be
 started manually from GitHub Actions.
 
-All jobs use `ubuntu-24.04` explicitly. Do not switch to `ubuntu-latest` until
-the MongoDB image supports Linux kernels 6.19 and newer (MongoDB SERVER-121912).
-The Ubuntu 26 runner currently prevents the MongoDB CI service from starting.
+Frontend and deployment jobs use `ubuntu-24.04` explicitly. Backend checks use
+`ubuntu-22.04` because newer Ubuntu 24/26 runner images can use Linux kernels
+6.19 or newer, which the current MongoDB image rejects (MongoDB SERVER-121912).
+Revisit the backend runner once MongoDB supports those kernels, before Ubuntu 22
+runners reach end of support.
 
 - `Frontend checks`: Node.js 24, `npm ci`, ESLint with zero warnings, and the
   production Vite build.

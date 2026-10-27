@@ -42,6 +42,26 @@ class AccountPasswordServiceTest {
     }
 
     @Test
+    void googleAccountCanLogInByEmailAfterCreatingItsPassword() {
+        user.setId(java.util.UUID.randomUUID());
+        var twoFactor = mock(com.net.cardo.xcopybackend.twofactor.service.TwoFactorService.class);
+        var login = new UserService(users, encoder, twoFactor);
+        when(users.setInitialPassword(eq(user.getEmail()), anyString())).thenAnswer(invocation -> {
+            user.setPassword(invocation.getArgument(1));
+            return 1;
+        });
+
+        service.setInitialPassword(user.getEmail(), "new-password-123");
+        var response = login.loginOrRegister(
+                new com.net.cardo.xcopybackend.auth.dto.request.LoginRequest(user.getEmail(), "new-password-123"));
+
+        assertEquals(user.getId(), response.getUserId());
+        assertNotEquals("new-password-123", user.getPassword());
+        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(users, never()).save(any());
+    }
+
+    @Test
     void rejectsReplacingAnExistingPassword() {
         user.setPassword(encoder.encode("existing-password"));
         var failure = assertThrows(ResponseStatusException.class,

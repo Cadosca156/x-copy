@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getMyProfile } from '../../api/userApi.js';
+import { getMyProfile, getMyPasswordStatus } from '../../api/userApi.js';
+import { getAccountSetupPath } from '../../api/accountSetup.js';
 
 function OAuth2Success() {
     const navigate = useNavigate();
@@ -18,8 +19,8 @@ function OAuth2Success() {
         async function redirectAfterProfileCheck() {
             try {
                 localStorage.setItem("token", token);
-                const profile = await getMyProfile();
-                navigate(profile?.username ? '/feed' : '/setup-profile', { replace: true });
+                const [profile, status] = await Promise.all([getMyProfile(), getMyPasswordStatus()]);
+                navigate(getAccountSetupPath(profile, status), { replace: true });
             } catch (profileError) {
                 setError(profileError.message || 'Не вдалося завантажити профіль');
             }

@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # Pin the runner: mongo:8 cannot start on Linux kernels >= 6.19 (Ubuntu 26).
   frontend:
     name: Frontend checks
     runs-on: ubuntu-24.04
@@ -43,7 +42,8 @@ jobs:
 
   backend:
     name: Backend checks
-    runs-on: ubuntu-24.04
+    # Ubuntu 24/26 runner kernels can be >= 6.19, which mongo:8 rejects.
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     defaults:
       run:

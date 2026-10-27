@@ -19,6 +19,9 @@ export async function sendemail(email) {
     }
 }
 export async function resetpassword(token, newPassword) {
+    if (!token || !token.trim()) {
+        return { success: false, message: 'У посиланні немає токена. Запросіть новий лист.' };
+    }
     try {
         const response = await fetch("/api/auth/password/reset", {
             method: "POST",
@@ -33,9 +36,13 @@ export async function resetpassword(token, newPassword) {
 
         const data = await response.json().catch(() => null);
 
-        return { success: response.ok, data };
+        return {
+            success: response.ok,
+            data,
+            message: response.ok ? undefined : data?.message || data?.detail || 'Не вдалося змінити пароль. Запросіть новий лист.',
+        };
     }
     catch (error) {
-        return { success: false, error };
+        return { success: false, error, message: 'Не вдалося з’єднатися із сервером. Спробуйте ще раз.' };
     }
 }

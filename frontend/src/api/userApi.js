@@ -4,6 +4,17 @@ export function getMyProfile() {
     return apiFetch('/users/me');
 }
 
+export function getMyPasswordStatus() {
+    return apiFetch('/users/me/password');
+}
+
+export function setMyInitialPassword(password) {
+    return apiFetch('/users/me/password', {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+    });
+}
+
 export function updateMyProfile({ username, displayName }) {
     return apiFetch('/users/me/profile', {
         method: 'PATCH',

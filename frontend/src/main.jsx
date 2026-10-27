@@ -12,6 +12,7 @@ import TwoFA from "./pages/TwoFa/TwoFA.jsx";
 import ResetPasswordEmail from "./pages/ResetPassword/ResetPasswordEmail.jsx";
 import ResetPassword from "./pages/ResetPassword/ResetPassword.jsx";
 import SetupProfile from './pages/SetupProfile/SetupProfile.jsx';
+import SetupPassword from './pages/auth/SetupPassword.jsx';
 
 createRoot(document.getElementById('root')).render(
     <BrowserRouter>
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="/feed" element={<Feed />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/setup-profile" element={<SetupProfile />} />
+            <Route path="/setup-password" element={<SetupPassword />} />
             <Route path="/2fa" element={<TwoFA />} />
             <Route path="/reset-password-email" element={<ResetPasswordEmail />}/>
             <Route path="/reset-password" element={<ResetPassword />}/>

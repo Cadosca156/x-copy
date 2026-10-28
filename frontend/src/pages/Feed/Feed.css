@@ -28,3 +28,21 @@ button { border: 0; cursor: pointer; color: inherit; }
 @media (max-width: 980px) { .feed-page { grid-template-columns: 88px minmax(0, 600px); gap: 18px; }.right-rail { display: none; } }
 @media (max-width: 640px) { body { margin: 0; }.feed-page { display: block; padding-bottom: 61px; overflow-x: clip; }.timeline { border-left: 0; border-right: 0; }.feed-sidebar { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: block; min-height: 61px; padding: 4px 6px; border-top: 1px solid var(--line); background: rgba(0,0,0,.92); backdrop-filter: blur(12px); }.sidebar__top { display: block; }.brand, .compose-button, .account-switcher { display: none; }.sidebar__nav { display: flex; align-items: center; justify-content: space-around; gap: 0; }.nav-item { display: grid; place-items: center; width: 48px; height: 50px; padding: 0; }.nav-item span { display: none; }.sidebar__nav .nav-item:nth-child(5), .sidebar__nav .nav-item:nth-child(6), .sidebar__nav .nav-item:nth-child(7) { display: none; }.timeline__title-row { height: 50px; }.composer { padding: 11px 14px 8px; }.composer__location { display: none; }.post { padding: 11px 14px 5px; }.post__handle { overflow: hidden; text-overflow: ellipsis; }.post__actions { margin-right: 0; }.post-action { gap: 4px; }.mobile-compose { position: fixed; z-index: 11; right: 17px; bottom: 73px; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--blue); color: white; box-shadow: 0 4px 14px rgba(0,0,0,.45); transition: background .18s ease, transform .18s ease; }.mobile-compose:hover { background: #1688d3; transform: scale(1.04); } }
 @media (max-width: 390px) { .composer__tools .icon-button:nth-child(3), .composer__tools .icon-button:nth-child(4) { display: none; }.post__name { max-width: 110px; }.post-action span { font-size: 12px; } }
+
+/* Keep the feed in its own viewport while navigation stays in place. */
+#root:has(> .feed-page--scrollable) { height: 100dvh; min-height: 0; overflow: hidden; }
+.feed-page--scrollable { height: 100%; min-height: 0; overflow: hidden; }
+.feed-page--scrollable > .timeline { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: #536471 #000; }
+.feed-page--scrollable > .feed-sidebar { height: 100%; min-height: 0; overflow-y: auto; }
+.feed-page--scrollable > .right-rail { max-height: 100%; overflow-y: auto; }
+.post-follow { flex-shrink: 0; margin-left: auto; padding: 3px 8px; border-radius: 999px; background: transparent; color: var(--blue); font-size: 12px; font-weight: 700; }
+.post-follow:hover:not(:disabled) { background: rgba(29,155,240,.12); }
+.post-follow.is-following { color: var(--muted); }
+.post-follow:disabled, .follow-button:disabled { opacity: .5; cursor: default; }
+.post-follow:focus-visible, .follow-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.feed-page--scrollable .post__meta { height: auto; min-height: 22px; flex-wrap: wrap; }
+.people-message { padding: 12px 15px; color: var(--muted); font-size: 14px; }
+@media (max-width: 640px) {
+    .feed-page--scrollable { height: 100%; }
+    .feed-page--scrollable > .feed-sidebar { height: 61px; overflow: visible; }
+}

@@ -82,4 +82,20 @@ class PostServiceTest {
         when(users.findById(id)).thenThrow(new DataAccessResourceFailureException("Database unavailable"));
         assertThrows(DataAccessResourceFailureException.class, () -> service.getPosts("viewer"));
     }
+
+    @Test
+    void followingFeedQueriesOnlySelectedAuthorsInNewestFirstOrder() {
+        String authorId = UUID.randomUUID().toString();
+        when(posts.findByUserIdInOrderByCreatedAtDesc(List.of(authorId)))
+                .thenReturn(List.of(post("newest", authorId), post("older", authorId)));
+        var feed = service.getPostsByAuthors(List.of(authorId), "viewer");
+        assertEquals(List.of("newest", "older"), feed.stream().map(p -> p.id()).toList());
+        verify(posts, never()).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    void followingNobodyReturnsEmptyFeedWithoutQueryingAllPosts() {
+        assertEquals(List.of(), service.getPostsByAuthors(List.of(), "viewer"));
+        verifyNoInteractions(posts);
+    }
 }

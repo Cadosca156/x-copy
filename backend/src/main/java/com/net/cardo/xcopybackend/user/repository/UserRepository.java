@@ -12,6 +12,9 @@ import java.util.UUID;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
+    @Query("select u from User u where u.id <> :viewer and u.username is not null and trim(u.username) <> '' order by u.username, u.id")
+    java.util.List<User> findFollowSuggestions(@Param("viewer") UUID viewer, org.springframework.data.domain.Pageable pageable);
+
     boolean existsByEmail(String email);
     Optional<User> findByEmail(String email);
     Optional<User> findById(UUID userId);
@@ -22,3 +25,4 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             + "and (u.password is null or trim(u.password) = '')")
     int setInitialPassword(@Param("email") String email, @Param("password") String encodedPassword);
 }
+

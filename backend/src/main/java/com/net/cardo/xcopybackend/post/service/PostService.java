@@ -10,6 +10,8 @@ import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -125,11 +127,18 @@ public class PostService {
                 .toList();
     }
 
-    public void deletePost(String id) {
-        postRepository.findById(id).ifPresent(post -> {
-            postRepository.delete(post);
-            mediaStorageService.delete(post.getMediaUrl());
-            feedCacheService.invalidate();
-        });
+    public void deletePost(String id, String currentUserId) {
+        if (currentUserId == null || currentUserId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову");
+        }
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Допис не знайдено"));
+        if (!currentUserId.equals(post.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Можна видаляти лише власні дописи");
+        }
+        postRepository.delete(post);
+        mediaStorageService.delete(post.getMediaUrl());
+        feedCacheService.invalidate();
     }
 }
+

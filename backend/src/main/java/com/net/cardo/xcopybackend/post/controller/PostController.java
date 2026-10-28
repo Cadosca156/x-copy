@@ -121,10 +121,20 @@ public class PostController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(
-            @PathVariable String id
+            @PathVariable String id,
+            Authentication authentication
     ) {
 
-        postService.deletePost(id);
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову");
+        }
+        String email = authentication.getPrincipal() instanceof OidcUser oidcUser
+                ? oidcUser.getEmail() : authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову"));
+        postService.deletePost(id, user.getId().toString());
 
         return ResponseEntity.noContent().build();
     }
@@ -156,3 +166,4 @@ public class PostController {
         return ResponseEntity.ok(liked);
     }
 }
+

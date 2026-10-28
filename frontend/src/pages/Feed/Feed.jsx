@@ -130,6 +130,7 @@ function normalizePost(post, index = 0) {
 
     return {
         id,
+        userId: post.userId ?? author.id,
         displayName,
         avatarUrl: author.avatarUrl ?? post.avatarUrl,
         username,
@@ -162,7 +163,8 @@ function normalizeComment(comment, index = 0) {
     };
 }
 
-function Post({ post, onDelete }) {
+function Post({ post, currentUserId, onDelete }) {
+    const isOwnPost = Boolean(currentUserId && post.userId && String(currentUserId) === String(post.userId));
     const [liked, setLiked] = useState(() => post.hasLikedStatus ? post.liked : isPostStoredAsLiked(post.id));
     const [likesCount, setLikesCount] = useState(post.likes);
     const [likeLoading, setLikeLoading] = useState(false);
@@ -287,6 +289,7 @@ function Post({ post, onDelete }) {
     };
 
     const handleDelete = async () => {
+        if (!isOwnPost || isDeleting) return;
         const isConfirmed = window.confirm('Ви точно хочете видалити цей пост? Цю дію не можна скасувати.');
         if (!isConfirmed) return;
 
@@ -312,7 +315,7 @@ function Post({ post, onDelete }) {
                     <span className="post__handle">@{post.username}</span>
                     <span className="post__dot">·</span>
                     <time className="post__time">{post.time}</time>
-                    <div className="post__menu">
+                    {isOwnPost && <div className="post__menu">
                         <button
                             className="icon-button post__more"
                             type="button"
@@ -330,7 +333,7 @@ function Post({ post, onDelete }) {
                                 </button>
                             </div>
                         )}
-                    </div>
+                    </div>}
                 </div>
                 {post.text && <p className="post__text">{post.text}</p>}
                 {post.mediaUrl && (
@@ -472,6 +475,7 @@ export default function Feed() {
 
                 const displayName = getDisplayName(profile);
                 setCurrentProfile({
+                    id: profile.id,
                     avatarUrl: profile.avatarUrl,
                     displayName,
                     username: getUsername(profile, displayName),
@@ -607,6 +611,7 @@ export default function Feed() {
                 {!isLoadingPosts && !postsError && posts.map((post) => (
                     <Post
                         post={post}
+                        currentUserId={currentProfile.id}
                         key={post.id}
                         onDelete={(postId) => setPosts((items) => items.filter((item) => item.id !== postId))}
                     />

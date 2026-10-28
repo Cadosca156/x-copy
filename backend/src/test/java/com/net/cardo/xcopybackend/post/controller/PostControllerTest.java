@@ -24,6 +24,26 @@ class PostControllerTest {
         mvc.perform(get("/api/posts").principal(principal)).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/posts/user/some-user").principal(principal)).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/posts/some-post/like").principal(principal)).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/posts/some-post").principal(principal)).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/posts/some-post")).andExpect(status().isUnauthorized());
         verifyNoInteractions(posts, likes);
+    }
+
+    @Test
+    void deletionUsesAuthenticatedUserIdForPasswordAndGoogleSessions() throws Exception {
+        var users = mock(UserRepository.class);
+        var posts = mock(PostService.class);
+        var user = new com.net.cardo.xcopybackend.user.entity.User();
+        user.setId(java.util.UUID.randomUUID());
+        when(users.findByEmail("owner@example.test")).thenReturn(java.util.Optional.of(user));
+        var mvc = MockMvcBuilders.standaloneSetup(new PostController(posts, users, mock(LikeService.class)))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
+        var password = new UsernamePasswordAuthenticationToken("owner@example.test", null, List.of());
+        mvc.perform(delete("/api/posts/post").principal(password)).andExpect(status().isNoContent());
+        var oidc = mock(org.springframework.security.oauth2.core.oidc.user.OidcUser.class);
+        when(oidc.getEmail()).thenReturn("owner@example.test");
+        var google = new UsernamePasswordAuthenticationToken(oidc, null, List.of());
+        mvc.perform(delete("/api/posts/post").principal(google)).andExpect(status().isNoContent());
+        verify(posts, times(2)).deletePost("post", user.getId().toString());
     }
 }

@@ -127,6 +127,12 @@ public class PostService {
                 .toList();
     }
 
+    public List<PostResponse> getPostsByAuthors(List<String> authorIds, String viewerId) {
+        if (authorIds.isEmpty()) return List.of();
+        return postRepository.findByUserIdInOrderByCreatedAtDesc(authorIds).stream()
+                .map(post -> toResponse(post, viewerId)).toList();
+    }
+
     public void deletePost(String id, String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову");
@@ -141,4 +147,5 @@ public class PostService {
         feedCacheService.invalidate();
     }
 }
+
 

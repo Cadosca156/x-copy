@@ -10,6 +10,8 @@ public interface PostRepository extends MongoRepository<Post, String> {
 
     List<Post> findAllByOrderByCreatedAtDesc();
 
+    List<Post> findByUserIdInOrderByCreatedAtDesc(List<String> userIds);
+
     List<Post> findByUserIdOrderByCreatedAtDesc(String userId);
 
 }

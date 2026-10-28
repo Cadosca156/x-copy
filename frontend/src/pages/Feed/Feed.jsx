@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from '../../components/Avatar.jsx';
 import {
@@ -22,6 +22,7 @@ import './Feed.css';
 import './CreatePost.css'
 import { createPost, deleteComment, deletePost, getComments, getPosts, postComment, toggleLike as togglePostLike } from "../../api/postApi.js";
 import { getMyProfile } from '../../api/userApi.js';
+import { followUser, unfollowUser, getFollowingIds, getFollowingPosts, getSuggestedUsers } from '../../api/followApi.js';
 
 const currentUser = {
     displayName: 'Alex Morgan',
@@ -37,11 +38,6 @@ const trends = [
     { category: 'Music · Trending', topic: 'Late night playlists', posts: '32.1K posts' },
 ];
 
-const suggestedUsers = [
-    { displayName: 'Nadia Petrenko', username: 'nadia', initials: 'NP', tone: 'mint' },
-    { displayName: 'Samir Patel', username: 'samirbuilds', initials: 'SP', tone: 'rose' },
-    { displayName: 'Olivia Carter', username: 'oliviacarter', initials: 'OC', tone: 'blue' },
-];
 const navigation = [
     { label: 'Home', icon: Home, active: true },
     { label: 'Explore', icon: Search },
@@ -163,7 +159,7 @@ function normalizeComment(comment, index = 0) {
     };
 }
 
-function Post({ post, currentUserId, onDelete }) {
+function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFollow }) {
     const isOwnPost = Boolean(currentUserId && post.userId && String(currentUserId) === String(post.userId));
     const [liked, setLiked] = useState(() => post.hasLikedStatus ? post.liked : isPostStoredAsLiked(post.id));
     const [likesCount, setLikesCount] = useState(post.likes);
@@ -315,6 +311,11 @@ function Post({ post, currentUserId, onDelete }) {
                     <span className="post__handle">@{post.username}</span>
                     <span className="post__dot">·</span>
                     <time className="post__time">{post.time}</time>
+                    {currentUserId && post.userId && !isOwnPost && post.username !== 'deleted' && <button
+                        type="button" className={`post-follow ${isFollowing ? 'is-following' : ''}`}
+                        disabled={followPending} onClick={() => onFollow(post.userId)}
+                        aria-label={`${isFollowing ? 'Відписатися від' : 'Підписатися на'} @${post.username}`}
+                    >{followPending ? '…' : isFollowing ? 'Following' : 'Follow'}</button>}
                     {isOwnPost && <div className="post__menu">
                         <button
                             className="icon-button post__more"
@@ -412,11 +413,18 @@ function Post({ post, currentUserId, onDelete }) {
 
 export default function Feed() {
     const navigate = useNavigate();
+    const timelineRef = useRef(null);
     const [activeTab, setActiveTab] = useState('For you');
     const [posts, setPosts] = useState([]);
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
     const [postsError, setPostsError] = useState('');
     const [following, setFollowing] = useState([]);
+    const [suggestedUsers, setSuggestedUsers] = useState([]);
+    const [isLoadingPeople, setIsLoadingPeople] = useState(true);
+    const [followError, setFollowError] = useState('');
+    const [followPending, setFollowPending] = useState([]);
+    const [followingReady, setFollowingReady] = useState(false);
+    const [feedVersion, setFeedVersion] = useState(0);
     const [currentProfile, setCurrentProfile] = useState(currentUser);
 
     const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -443,7 +451,7 @@ export default function Feed() {
             setPostsError('');
 
             try {
-                const response = await getPosts();
+                const response = await (activeTab === 'Following' ? getFollowingPosts() : getPosts());
                 const items = Array.isArray(response) ? response : response?.content ?? response?.posts ?? [];
 
                 if (isCurrent) {
@@ -464,7 +472,38 @@ export default function Feed() {
         return () => {
             isCurrent = false;
         };
+    }, [activeTab, feedVersion]);
+
+    useEffect(() => {
+        let current = true;
+        Promise.all([getSuggestedUsers(), getFollowingIds()])
+            .then(([people, ids]) => {
+                if (!current) return;
+                setSuggestedUsers(people.slice(0, 3));
+                setFollowing(ids.map(String));
+                setFollowingReady(true);
+            })
+            .catch(error => { if (current) setFollowError(error.message || 'Не вдалося завантажити підписки'); })
+            .finally(() => { if (current) setIsLoadingPeople(false); });
+        return () => { current = false; };
     }, []);
+
+    const handleFollow = async userId => {
+        const id = String(userId);
+        if (!followingReady || followPending.includes(id)) return;
+        const wasFollowing = following.includes(id);
+        setFollowPending(items => [...items, id]);
+        setFollowError('');
+        try {
+            await (wasFollowing ? unfollowUser(id) : followUser(id));
+            setFollowing(items => wasFollowing ? items.filter(item => item !== id) : [...new Set([...items, id])]);
+            setFeedVersion(version => version + 1);
+        } catch (error) {
+            setFollowError(error.message || 'Не вдалося змінити підписку');
+        } finally {
+            setFollowPending(items => items.filter(item => item !== id));
+        }
+    };
 
     useEffect(() => {
         let isCurrent = true;
@@ -540,15 +579,12 @@ export default function Feed() {
         setPostError("");
 
         try {
-            const createdPost = await createPost(content, selectedMedia?.file);
+            await createPost(content, selectedMedia?.file);
 
             setPostText("");
             setSelectedMedia(null);
             setIsComposerOpen(false);
-            setPosts(prevPosts => [
-                normalizePost(createdPost),
-                ...prevPosts
-            ]);
+            setFeedVersion(version => version + 1);
 
 
         } catch (error) {
@@ -562,7 +598,7 @@ export default function Feed() {
 
 
     return (
-        <main className="feed-page">
+        <main className="feed-page feed-page--scrollable">
             <aside className="feed-sidebar" aria-label="Main navigation">
                 <div className="sidebar__top">
                     <a className="brand" href="#feed" aria-label="X home">X</a>
@@ -583,7 +619,7 @@ export default function Feed() {
                 </button>
             </aside>
 
-            <section className="timeline" aria-label="Posts">
+            <section className="timeline" aria-label="Posts" ref={timelineRef}>
                 <header className="timeline__header">
                     <div className="timeline__title-row">
                         <h1>Home</h1>
@@ -597,7 +633,7 @@ export default function Feed() {
                                 role="tab"
                                 aria-selected={activeTab === tab}
                                 key={tab}
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => { setActiveTab(tab); timelineRef.current?.scrollTo({ top: 0 }); }}
                             >
                                 {tab}
                             </button>
@@ -607,11 +643,15 @@ export default function Feed() {
 
                 {isLoadingPosts && <p className="timeline-message">Завантажуємо пости…</p>}
                 {postsError && <p className="timeline-message timeline-message--error">{postsError}</p>}
-                {!isLoadingPosts && !postsError && posts.length === 0 && <p className="timeline-message">Постів поки немає.</p>}
+                {followError && <p className="timeline-message timeline-message--error" role="alert">{followError}</p>}
+                {!isLoadingPosts && !postsError && posts.length === 0 && <p className="timeline-message">{activeTab === 'Following' ? 'Тут будуть дописи користувачів, на яких ти підписаний. Підпишись на автора у стрічці або в списку праворуч.' : 'Постів поки немає.'}</p>}
                 {!isLoadingPosts && !postsError && posts.map((post) => (
                     <Post
                         post={post}
                         currentUserId={currentProfile.id}
+                        isFollowing={following.includes(String(post.userId))}
+                        followPending={!followingReady || followPending.includes(String(post.userId))}
+                        onFollow={handleFollow}
                         key={post.id}
                         onDelete={(postId) => setPosts((items) => items.filter((item) => item.id !== postId))}
                     />
@@ -767,11 +807,13 @@ export default function Feed() {
                 </section>
                 <section className="rail-card" aria-labelledby="follow-title">
                     <h2 id="follow-title">Who to follow</h2>
+                    {isLoadingPeople && <p className="people-message">Завантажуємо користувачів…</p>}
+                    {!isLoadingPeople && !followError && suggestedUsers.length === 0 && <p className="people-message">Інших користувачів поки немає.</p>}
                     {suggestedUsers.map((person) => {
-                        const isFollowing = following.includes(person.username);
-                        return <div className="suggestion" key={person.username}><Avatar person={person} size="small" /><div className="suggestion__text"><strong>{person.displayName}</strong><span>@{person.username}</span></div><button type="button" className={`follow-button ${isFollowing ? 'is-following' : ''}`} onClick={() => setFollowing((items) => isFollowing ? items.filter((username) => username !== person.username) : [...items, person.username])}>{isFollowing ? 'Following' : 'Follow'}</button></div>;
+                        const isFollowing = following.includes(String(person.id));
+                        const pending = !followingReady || followPending.includes(String(person.id));
+                        return <div className="suggestion" key={person.id}><Avatar person={person} size="small" /><div className="suggestion__text"><strong>{getDisplayName(person)}</strong><span>@{person.username}</span></div><button type="button" className={`follow-button ${isFollowing ? 'is-following' : ''}`} disabled={pending} onClick={() => handleFollow(person.id)} aria-label={`${isFollowing ? 'Відписатися від' : 'Підписатися на'} @${person.username}`}>{pending ? '…' : isFollowing ? 'Following' : 'Follow'}</button></div>;
                     })}
-                    <button className="show-more" type="button">Show more</button>
                 </section>
                 <footer className="rail-footer">Terms of Service&nbsp;&nbsp; Privacy Policy&nbsp;&nbsp; Cookie Policy&nbsp;&nbsp; Accessibility&nbsp;&nbsp; More <ChevronDown size={13} /> <span>© 2026</span></footer>
             </aside>

@@ -12,6 +12,11 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import com.net.cardo.xcopybackend.post.dto.response.CommentResponse;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -22,7 +27,7 @@ public class CommentController {
     private final UserRepository userRepository;
 
     @PostMapping("/{postId}/comments")
-    public ResponseEntity<Comment> createComment(
+    public ResponseEntity<CommentResponse> createComment(
             @PathVariable String postId,
             @RequestBody CreateCommentRequest request,
             Authentication authentication
@@ -47,17 +52,21 @@ public class CommentController {
                 request.content()
         );
 
-        return ResponseEntity.ok(comment);
+        return ResponseEntity.ok(toResponse(comment, user));
     }
 
     @GetMapping("/{postId}/comments")
-    public ResponseEntity<List<Comment>> getComments(
+    public ResponseEntity<List<CommentResponse>> getComments(
             @PathVariable String postId
     ) {
 
-        return ResponseEntity.ok(
-                commentService.getComments(postId)
-        );
+        var comments = commentService.getComments(postId);
+        var ids = comments.stream().map(c -> parseUserId(c.getUserId()))
+                .filter(Objects::nonNull).distinct().toList();
+        var authors = userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+        return ResponseEntity.ok(comments.stream()
+                .map(c -> toResponse(c, authors.get(parseUserId(c.getUserId())))).toList());
     }
     @DeleteMapping("/{postId}/comments/{commentId}")
     public ResponseEntity<Void> deleteComment(
@@ -86,5 +95,22 @@ public class CommentController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    private static UUID parseUserId(String value) {
+        if (value == null) return null;
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static CommentResponse toResponse(Comment comment, User author) {
+        return new CommentResponse(comment.getId(), comment.getPostId(), comment.getUserId(),
+                author == null ? "deleted" : author.getUsername(),
+                author == null ? "Видалений користувач" : author.getDisplayName(),
+                author == null ? null : author.getAvatarUrl(),
+                comment.getContent(), comment.getCreatedAt());
     }
 }

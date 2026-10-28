@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Camera, Home, UserRound, X } from 'lucide-react';
+import { ArrowLeft, Camera, Home, LogOut, UserRound, X } from 'lucide-react';
 import Avatar from '../../components/Avatar.jsx';
 import { getMyProfile, updateMyAvatar, updateMyProfile } from '../../api/userApi.js';
 import { getUserPosts } from '../../api/postApi.js';
@@ -21,6 +21,11 @@ export default function Profile() {
     const [postsError, setPostsError] = useState('');
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
     const [retry, setRetry] = useState(0);
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.replace('/login');
+    }
 
     useEffect(() => {
         let current = true;
@@ -102,7 +107,11 @@ export default function Profile() {
                 <Link to="/profile" className="is-active" aria-current="page"><UserRound size={24} /><span>Профіль</span></Link>
             </aside>
             <section className="timeline profile-timeline" aria-label="Мій профіль">
-                <header className="profile-header"><Link to="/feed" className="icon-button" aria-label="До стрічки"><ArrowLeft size={22} /></Link><h1>Мій профіль</h1></header>
+                <header className="profile-header">
+                    <Link to="/feed" className="icon-button" aria-label="До стрічки"><ArrowLeft size={22} /></Link>
+                    <h1>Мій профіль</h1>
+                    <button type="button" className="profile-logout" onClick={logout}><LogOut size={18} aria-hidden="true" /><span>Вийти з акаунту</span></button>
+                </header>
                 {isLoading ? <p className="timeline-message">Завантажуємо профіль…</p> : !profile ? (
                     <div className="profile-load-error"><p role="alert">{error}</p><button type="button" onClick={() => { setIsLoading(true); setError(''); setRetry(value => value + 1); }}>Спробувати знову</button></div>
                 ) : <>

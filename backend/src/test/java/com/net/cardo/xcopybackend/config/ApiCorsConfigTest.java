@@ -56,4 +56,43 @@ class ApiCorsConfigTest {
         filter.doFilter(request, response, (req, res) -> reachedController.set(true));
         assertTrue(reachedController.get());
     }
+
+    @Test
+    void allowsFollowPutFromWebsiteAndLocalDevelopment() throws ServletException, IOException {
+        for (String origin : new String[] {ORIGIN, "http://localhost:5173"}) {
+            var request = new MockHttpServletRequest("PUT", "/api/users/target/follow");
+            request.addHeader("Origin", origin);
+            request.addHeader("Authorization", "Bearer test-token");
+            var response = new MockHttpServletResponse();
+            var reachedController = new AtomicBoolean();
+            filter.doFilter(request, response, (req, res) -> reachedController.set(true));
+            assertTrue(reachedController.get(), "Follow request must reach controller for " + origin);
+            assertEquals(200, response.getStatus());
+            assertEquals(origin, response.getHeader("Access-Control-Allow-Origin"));
+        }
+    }
+
+    @Test
+    void allowsFollowAndUnfollowPreflight() throws ServletException, IOException {
+        for (String method : new String[] {"PUT", "DELETE"}) {
+            var request = new MockHttpServletRequest("OPTIONS", "/api/users/target/follow");
+            request.addHeader("Origin", ORIGIN);
+            request.addHeader("Access-Control-Request-Method", method);
+            request.addHeader("Access-Control-Request-Headers", "authorization");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> fail("Preflight must finish before authentication"));
+            assertEquals(200, response.getStatus(), method + " preflight must be allowed");
+            assertEquals(ORIGIN, response.getHeader("Access-Control-Allow-Origin"));
+            assertTrue(response.getHeader("Access-Control-Allow-Methods").contains(method));
+        }
+    }
+
+    @Test
+    void rejectsFollowFromUntrustedOrigin() throws ServletException, IOException {
+        var request = new MockHttpServletRequest("PUT", "/api/users/target/follow");
+        request.addHeader("Origin", "https://untrusted.example");
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> fail("Untrusted follow must not reach controller"));
+        assertEquals(403, response.getStatus());
+    }
 }

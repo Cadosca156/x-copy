@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class JwtService {
     private final SecretKey signingKey;
-    public JwtService(@Value("${app.jwt.secret}") String secret) {
+    private final com.net.cardo.xcopybackend.user.repository.UserRepository users;
+    public JwtService(@Value("${app.jwt.secret}") String secret, com.net.cardo.xcopybackend.user.repository.UserRepository users) {
+        this.users = users;
         byte[] bytes;
         try { bytes = Base64.getDecoder().decode(secret); }
         catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("APP_JWT_SECRET must be Base64", invalid); }
@@ -19,7 +21,9 @@ public class JwtService {
         signingKey = Keys.hmacShaKeyFor(bytes);
     }
     public String generateToken(String email) {
-        return Jwts.builder().subject(email).issuedAt(new Date())
+        var user = users.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("Unknown account"));
+        return Jwts.builder().issuer("x-copy").subject(email)
+                .claim("uid", user.getId().toString()).claim("ver", user.getTokenVersion()).issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 86_400_000L))
                 .signWith(signingKey, Jwts.SIG.HS256).compact();
     }
@@ -30,6 +34,10 @@ public class JwtService {
         return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload().getExpiration();
     }
     public Boolean validateToken(String token) {
-        return extractExpiration(token).after(new Date());
+        var claims = Jwts.parser().verifyWith(signingKey).requireIssuer("x-copy").build().parseSignedClaims(token).getPayload();
+        return users.findByEmail(claims.getSubject()).map(user ->
+                user.getId().toString().equals(claims.get("uid", String.class))
+                && claims.get("ver") instanceof Number version
+                && user.getTokenVersion() == version.intValue()).orElse(false);
     }
 }

@@ -104,8 +104,10 @@ public class PasswordResetService {
         user.setPassword(hashedPassword);
 
         userRepository.save(user);
+        userRepository.invalidateSessions(user.getEmail());
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
+        passwordResetTokenRepository.invalidateForUser(user.getId());
 
     }
 

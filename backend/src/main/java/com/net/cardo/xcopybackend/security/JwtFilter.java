@@ -25,13 +25,17 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        // Public authentication routes must remain usable after logout/reset/expiry.
+        if(request.getRequestURI().startsWith("/api/auth/")) { filterChain.doFilter(request,response); return; }
         String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+        String cookie = java.util.Arrays.stream(request.getCookies()==null?new jakarta.servlet.http.Cookie[0]:request.getCookies())
+                .filter(c->BrowserSessionService.COOKIE.equals(c.getName())).map(jakarta.servlet.http.Cookie::getValue).findFirst().orElse(null);
+        if ((header == null || !header.startsWith("Bearer ")) && cookie == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String jwt = header.substring(7);
+        String jwt = header != null && header.startsWith("Bearer ") ? header.substring(7) : cookie;
         try {
             String email = jwtService.extractEmail(jwt);
             if (email == null || email.isBlank() || !jwtService.validateToken(jwt)) {

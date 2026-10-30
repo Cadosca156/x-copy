@@ -30,13 +30,18 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final FrontendLinks frontendLinks;
+    private final com.net.cardo.xcopybackend.security.EphemeralAuthStore securityStore;
 
 
+     @org.springframework.scheduling.annotation.Async("securityMailExecutor")
      public void forgotPassword(ForgotPasswordRequest request) {
-        Optional<User> userEmail = userRepository.findByEmail(request.email());
+        if(request==null || request.email()==null || request.email().isBlank()) return;
+        String email=request.email().trim();
+        securityStore.limit("forgot:"+email.toLowerCase(java.util.Locale.ROOT),3,java.time.Duration.ofMinutes(15));
+        Optional<User> userEmail = userRepository.findByEmail(email);
 
         if (userEmail.isEmpty()) {
-           throw new RuntimeException("If email exists, email has been sent");
+           return;
         }
         User user = userEmail.get();
 

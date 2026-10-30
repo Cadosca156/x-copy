@@ -76,6 +76,7 @@ public class PostService {
             String content,
             org.springframework.web.multipart.MultipartFile file
     ) {
+        if (content != null && content.length() > 5000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Текст допису має містити до 5000 символів");
         Post post = new Post();
 
         post.setUserId(userId.toString());
@@ -83,7 +84,7 @@ public class PostService {
         post.setCreatedAt(LocalDateTime.now());
 
         if (file != null && !file.isEmpty()) {
-            MediaStorageService.StoredMedia media = mediaStorageService.store(file);
+            MediaStorageService.StoredMedia media = mediaStorageService.store(file, userId);
             post.setMediaUrl(media.url());
             post.setMediaType(media.contentType());
         }
@@ -99,13 +100,13 @@ public class PostService {
 
     @Cacheable(
             cacheNames = FeedCacheService.CACHE_NAME,
-            key = "'all:' + #a0",
+            key = "'all:' + #a0 + ':' + #a1 + ':' + #a2",
             sync = true
     )
-    public List<PostResponse> getPosts(String currentUserId) {
+    public List<PostResponse> getPosts(String currentUserId, int page, int size) {
 
         return postRepository
-                .findAllByOrderByCreatedAtDesc()
+                .findAllByOrderByCreatedAtDesc(page(page, size))
                 .stream()
                 .map(post -> toResponse(post, currentUserId))
                 .toList();
@@ -113,26 +114,34 @@ public class PostService {
 
     @Cacheable(
             cacheNames = FeedCacheService.CACHE_NAME,
-            key = "'user:' + #a0 + ':viewer:' + #a1",
+            key = "'user:' + #a0 + ':viewer:' + #a1 + ':' + #a2 + ':' + #a3",
             sync = true
     )
     public List<PostResponse> getUserPosts(
             String userId,
-            String currentUserId
+            String currentUserId, int page, int size
     ) {
         return postRepository
-                .findByUserIdOrderByCreatedAtDesc(userId)
+                .findByUserIdOrderByCreatedAtDesc(userId, page(page, size))
                 .stream()
                 .map(post -> toResponse(post, currentUserId))
                 .toList();
     }
 
-    public List<PostResponse> getPostsByAuthors(List<String> authorIds, String viewerId) {
+    public List<PostResponse> getPostsByAuthors(List<String> authorIds, String viewerId, int page, int size) {
+        var pageable = page(page, size);
         if (authorIds.isEmpty()) return List.of();
-        return postRepository.findByUserIdInOrderByCreatedAtDesc(authorIds).stream()
+        return postRepository.findByUserIdInOrderByCreatedAtDesc(authorIds, pageable).stream()
                 .map(post -> toResponse(post, viewerId)).toList();
     }
 
+    public static org.springframework.data.domain.Pageable page(int page, int size) {
+        if(page < 0 || page > 1000 || size < 1 || size > 50) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неприпустимий розмір сторінки");
+        return org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Order.desc("createdAt"), org.springframework.data.domain.Sort.Order.desc("id")));
+    }
+    public List<PostResponse> getPosts(String viewer) { return getPosts(viewer,0,20); }
+    public List<PostResponse> getUserPosts(String author,String viewer) { return getUserPosts(author,viewer,0,20); }
+    public List<PostResponse> getPostsByAuthors(List<String> authors,String viewer) { return getPostsByAuthors(authors,viewer,0,20); }
     public void deletePost(String id, String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову");
@@ -147,5 +156,3 @@ public class PostService {
         feedCacheService.invalidate();
     }
 }
-
-

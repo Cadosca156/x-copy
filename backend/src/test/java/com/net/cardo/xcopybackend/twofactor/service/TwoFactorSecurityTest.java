@@ -31,10 +31,10 @@ class TwoFactorSecurityTest {
         when(store.get(key)).thenReturn(value);
         when(store.consume(key,value)).thenReturn(true).thenReturn(false);
         when(users.findById(u.getId())).thenReturn(Optional.of(u));
-        when(jwt.generateToken(u.getEmail())).thenReturn("test-session");
+        when(jwt.generateToken(u)).thenReturn("test-session");
         assertEquals("test-session",service.verifyCode(challenge,"123456"));
         assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"123456"));
-        verify(jwt,times(1)).generateToken(u.getEmail());
+        verify(jwt,times(1)).generateToken(u);
     }
     @Test void wrongCodeConsumesAnAttemptAndDoesNotIssueToken() {
         when(store.get(key)).thenReturn(UUID.randomUUID()+"|0|"+encoder.encode("123456"));

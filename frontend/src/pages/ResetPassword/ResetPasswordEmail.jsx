@@ -19,7 +19,7 @@ export default function ResetPasswordEmail() {
 
     const result = await sendemail(email);
     setToast(result.success
-      ? { type: 'success', message: 'Лист із посиланням для зміни пароля надіслано.' }
+      ? { type: 'success', message: 'Якщо акаунт із таким email існує, ми надішлемо лист для зміни пароля.' }
       : { type: 'error', message: 'Не вдалося надіслати лист для зміни пароля.' });
     setIsSubmitting(false);
   };

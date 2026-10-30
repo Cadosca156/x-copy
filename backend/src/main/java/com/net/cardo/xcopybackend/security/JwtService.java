@@ -22,7 +22,11 @@ public class JwtService {
     }
     public String generateToken(String email) {
         var user = users.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("Unknown account"));
-        return Jwts.builder().issuer("x-copy").subject(email)
+        return generateToken(user);
+    }
+    public String generateToken(com.net.cardo.xcopybackend.user.entity.User user) {
+        // Bind to the version that passed authentication, including concurrent resets.
+        return Jwts.builder().issuer("x-copy").subject(user.getEmail())
                 .claim("uid", user.getId().toString()).claim("ver", user.getTokenVersion()).issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 86_400_000L))
                 .signWith(signingKey, Jwts.SIG.HS256).compact();

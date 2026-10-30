@@ -27,6 +27,7 @@ cp "${jars[0]}" "$work_dir/bundle/backend/build/libs/application.jar"
 cp backend/Dockerfile "$work_dir/bundle/backend/Dockerfile"
 cp docker-compose.yaml "$work_dir/bundle/docker-compose.yaml"
 cp .github/scripts/deploy-on-server.sh "$work_dir/bundle/deploy-on-server.sh"
+cp .github/scripts/configure-jwt-secret.sh "$work_dir/bundle/configure-jwt-secret.sh"
 tar -czf "$work_dir/release.tar.gz" -C "$work_dir/bundle" .
 
 ssh_options=(-i "$work_dir/key" -o BatchMode=yes -o IdentitiesOnly=yes

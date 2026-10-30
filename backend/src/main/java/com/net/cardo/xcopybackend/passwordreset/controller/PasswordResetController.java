@@ -23,7 +23,7 @@ public class PasswordResetController {
     ) {
         passwordResetService.forgotPassword(request);
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/reset")

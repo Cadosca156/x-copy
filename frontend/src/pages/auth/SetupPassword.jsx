@@ -15,10 +15,6 @@ export default function SetupPassword() {
 
     useEffect(() => {
         let current = true;
-        if (!localStorage.getItem('token')) {
-            navigate('/login', { replace: true });
-            return;
-        }
         Promise.all([getMyProfile(), getMyPasswordStatus()]).then(([account, status]) => {
             if (!current) return;
             const destination = getAccountSetupPath(account, status);
@@ -28,6 +24,7 @@ export default function SetupPassword() {
             }
             setProfile(account);
         }).catch(failure => {
+            if (current && failure.status === 401) navigate('/login', { replace: true });
             if (current) setError(failure.message || 'Не вдалося завантажити акаунт');
         }).finally(() => {
             if (current) setIsLoading(false);

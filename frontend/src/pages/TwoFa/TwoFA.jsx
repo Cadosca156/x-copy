@@ -52,7 +52,7 @@ export default function TwoFA() {
             if (!challengeId) throw new Error('Почніть вхід знову');
             const data = await twoFactorVerify(challengeId, code);
 
-            localStorage.setItem("token", data.token);
+            if (!data.authenticated) throw new Error('Не вдалося завершити вхід');
             sessionStorage.removeItem('loginChallenge');
             const profile = await getMyProfile();
 

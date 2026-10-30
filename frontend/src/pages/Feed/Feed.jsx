@@ -169,6 +169,8 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
     const [deleteError, setDeleteError] = useState('');
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [comments, setComments] = useState([]);
+    const [commentPage,setCommentPage] = useState(0);
+    const [moreComments,setMoreComments] = useState(false);
     const [commentsCount, setCommentsCount] = useState(post.replies);
     const [isLoadingComments, setIsLoadingComments] = useState(false);
     const [commentsError, setCommentsError] = useState('');
@@ -188,17 +190,17 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
         setCommentsCount(post.replies);
     }
 
-    const loadComments = async () => {
+    const loadComments = async (page = 0) => {
         setIsLoadingComments(true);
         setCommentsError('');
 
         try {
-            const response = await getComments(post.id);
+            const response = await getComments(post.id,page);
             const items = Array.isArray(response) ? response : response?.content ?? response?.comments ?? [];
             const normalizedComments = items.map(normalizeComment);
 
-            setComments(normalizedComments);
-            setCommentsCount(Number(response?.totalElements ?? normalizedComments.length));
+            setComments(previous => page === 0 ? normalizedComments : [...previous, ...normalizedComments.filter(item => !previous.some(comment => comment.id === item.id))]);
+            setCommentPage(page); setMoreComments(items.length === 20);
         } catch (error) {
             setCommentsError(error.message || 'Не вдалося завантажити коментарі');
         } finally {
@@ -392,6 +394,7 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
                                 </button>
                             </div>
                         ))}
+                        {moreComments && <button disabled={isLoadingComments} onClick={() => loadComments(commentPage + 1)}>Завантажити ще коментарі</button>}
                         <form className="comment-form" onSubmit={handlePostComment}>
                             <textarea
                                 value={commentText}
@@ -416,6 +419,23 @@ export default function Feed() {
     const timelineRef = useRef(null);
     const [activeTab, setActiveTab] = useState('For you');
     const [posts, setPosts] = useState([]);
+    const [nextPage, setNextPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const feedRevision = useRef(0);
+    async function loadMore() {
+        if (loadingMore || isLoadingPosts) return;
+        const revision = feedRevision.current;
+        setLoadingMore(true);
+        try {
+            const items = await (activeTab === 'Following' ? getFollowingPosts(nextPage) : getPosts(nextPage));
+            if (revision !== feedRevision.current) return;
+            setPosts(previous => [...previous, ...items.map(normalizePost).filter(item => !previous.some(post => post.id === item.id))]);
+            setNextPage(value => value + 1);
+            setHasMore(items.length === 20);
+        } catch (error) { if (revision === feedRevision.current) setPostsError(error.message); }
+        finally { if (revision === feedRevision.current) setLoadingMore(false); }
+    }
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
     const [postsError, setPostsError] = useState('');
     const [following, setFollowing] = useState([]);
@@ -447,6 +467,7 @@ export default function Feed() {
         let isCurrent = true;
 
         async function loadPosts() {
+            feedRevision.current += 1; setNextPage(1); setHasMore(false); setLoadingMore(false);
             setIsLoadingPosts(true);
             setPostsError('');
 
@@ -455,7 +476,7 @@ export default function Feed() {
                 const items = Array.isArray(response) ? response : response?.content ?? response?.posts ?? [];
 
                 if (isCurrent) {
-                    setPosts(items.map(normalizePost));
+                    setPosts(items.map(normalizePost)); setHasMore(items.length === 20);
                 }
             } catch (error) {
                 if (isCurrent) {
@@ -656,6 +677,7 @@ export default function Feed() {
                         onDelete={(postId) => setPosts((items) => items.filter((item) => item.id !== postId))}
                     />
                 ))}
+                {hasMore && !isLoadingPosts && <button className="timeline-message" disabled={loadingMore} onClick={loadMore}>{loadingMore ? 'Завантажуємо…' : 'Завантажити ще'}</button>}
             </section>
 
             {isComposerOpen && (

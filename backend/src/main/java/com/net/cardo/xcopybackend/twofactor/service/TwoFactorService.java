@@ -52,6 +52,6 @@ public class TwoFactorService {
         if(!encoder.matches(code,fields[2])) throw invalid();
         User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
         if(user.getTokenVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
-        return jwt.generateToken(user.getEmail());
+        return jwt.generateToken(user);
     }
 }

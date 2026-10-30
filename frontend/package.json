@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/api/accountSetup.test.mjs src/api/passwordResetApi.test.mjs",
+    "test": "node --test src/api/accountSetup.test.mjs src/api/passwordResetApi.test.mjs src/api/api.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

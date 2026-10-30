@@ -19,14 +19,13 @@ public class CustomOidcUserService extends OidcUserService {
 
     @Override
     public OidcUser loadUser(OidcUserRequest OidcUserRequest) {
-        System.out.println("🔥🔥🔥 CUSTOM Oidc SERVICE CALLED 🔥🔥🔥");
 
         OidcUser oidcUser = super.loadUser(OidcUserRequest);
 
         String email = oidcUser.getAttribute("email");
+        if (email == null || !Boolean.TRUE.equals(oidcUser.getAttribute("email_verified"))) throw new org.springframework.security.oauth2.core.OAuth2AuthenticationException("Google email is not verified");
 
 
-        System.out.println("GOOGLE EMAIL: " + email);
 
 
         Optional<User> user = userRepository.findByEmail(email);
@@ -34,11 +33,8 @@ public class CustomOidcUserService extends OidcUserService {
             User newUser = new User();
 
             newUser.setEmail(email);
-            System.out.println("GOOGLE EMAIL: " + email);
 
             User savedUser = userRepository.save(newUser);
-            System.out.println("SAVED USER ID: " + savedUser.getId());
-            System.out.println("SAVED USER EMAIL: " + savedUser.getEmail());
         }
 
 
@@ -48,8 +44,3 @@ public class CustomOidcUserService extends OidcUserService {
 
 
     }
-
-
-
-
-

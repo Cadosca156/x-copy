@@ -31,9 +31,9 @@ class FollowControllerTest {
     void followingFeedUsesOnlyAuthenticatedUsersSubscriptions() {
         var session = session();
         when(follows.followingIds(viewer)).thenReturn(List.of(target));
-        when(posts.getPostsByAuthors(List.of(target.toString()), viewer.toString())).thenReturn(List.of());
-        assertEquals(List.of(), controller.followingPosts(session));
-        verify(posts).getPostsByAuthors(List.of(target.toString()), viewer.toString());
+        when(posts.getPostsByAuthors(List.of(target.toString()), viewer.toString(),0,20)).thenReturn(List.of());
+        assertEquals(List.of(), controller.followingPosts(session,0,20));
+        verify(posts).getPostsByAuthors(List.of(target.toString()), viewer.toString(),0,20);
         verify(posts, never()).getPosts(any());
     }
 

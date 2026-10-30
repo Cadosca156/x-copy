@@ -11,12 +11,12 @@ export function createPost(content, file) {
     });
 }
 
-export function getPosts() {
-    return apiFetch("/posts");
+export function getPosts(page = 0) {
+    return apiFetch(`/posts?page=${page}&size=20`);
 }
 
-export function getUserPosts(userId) {
-    return apiFetch(`/posts/user/${userId}`);
+export function getUserPosts(userId, page = 0) {
+    return apiFetch(`/posts/user/${userId}?page=${page}&size=20`);
 }
 
 export function deletePost(id) {
@@ -42,8 +42,8 @@ export function deleteComment(id,commentId) {
         method: "DELETE"
     })
 }
-export function getComments(postId) {
-    return apiFetch(`/posts/${postId}/comments`, {
+export function getComments(postId, page = 0) {
+    return apiFetch(`/posts/${postId}/comments?page=${page}&size=20`, {
         method: "GET"
     })
 }

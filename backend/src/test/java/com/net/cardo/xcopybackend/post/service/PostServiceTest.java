@@ -38,7 +38,7 @@ class PostServiceTest {
         author.setDisplayName("Active User");
         author.setAvatarUrl("/media/posts/avatar.png");
         when(users.findById(activeId)).thenReturn(Optional.of(author));
-        when(posts.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(
+        when(posts.findAllByOrderByCreatedAtDesc(any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of(
                 post("old-post", deletedId.toString()), post("active-post", activeId.toString())));
         when(likes.countByPostId("old-post")).thenReturn(3L);
         when(comments.countByPostId("old-post")).thenReturn(2L);
@@ -64,13 +64,13 @@ class PostServiceTest {
     @Test
     void deletedAuthorsPostsCanStillBeListedByUser() {
         String deletedId = UUID.randomUUID().toString();
-        when(posts.findByUserIdOrderByCreatedAtDesc(deletedId)).thenReturn(List.of(post("old-post", deletedId)));
+        when(posts.findByUserIdOrderByCreatedAtDesc(eq(deletedId), any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of(post("old-post", deletedId)));
         assertEquals("Видалений користувач", service.getUserPosts(deletedId, "viewer").get(0).displayName());
     }
 
     @Test
     void malformedOrMissingLegacyAuthorIdsDoNotBreakTheFeed() {
-        when(posts.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(post("bad", "invalid-id"), post("null", null)));
+        when(posts.findAllByOrderByCreatedAtDesc(any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of(post("bad", "invalid-id"), post("null", null)));
         assertEquals(2, service.getPosts("viewer").size());
         verifyNoInteractions(users);
     }
@@ -78,7 +78,7 @@ class PostServiceTest {
     @Test
     void databaseOutageIsNotMistakenForADeletedAuthor() {
         UUID id = UUID.randomUUID();
-        when(posts.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(post("post", id.toString())));
+        when(posts.findAllByOrderByCreatedAtDesc(any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of(post("post", id.toString())));
         when(users.findById(id)).thenThrow(new DataAccessResourceFailureException("Database unavailable"));
         assertThrows(DataAccessResourceFailureException.class, () -> service.getPosts("viewer"));
     }
@@ -86,11 +86,11 @@ class PostServiceTest {
     @Test
     void followingFeedQueriesOnlySelectedAuthorsInNewestFirstOrder() {
         String authorId = UUID.randomUUID().toString();
-        when(posts.findByUserIdInOrderByCreatedAtDesc(List.of(authorId)))
+        when(posts.findByUserIdInOrderByCreatedAtDesc(eq(List.of(authorId)), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(List.of(post("newest", authorId), post("older", authorId)));
         var feed = service.getPostsByAuthors(List.of(authorId), "viewer");
         assertEquals(List.of("newest", "older"), feed.stream().map(p -> p.id()).toList());
-        verify(posts, never()).findAllByOrderByCreatedAtDesc();
+        verify(posts, never()).findAllByOrderByCreatedAtDesc(any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test

@@ -14,6 +14,7 @@ import ResetPassword from "./pages/ResetPassword/ResetPassword.jsx";
 import SetupProfile from './pages/SetupProfile/SetupProfile.jsx';
 import SetupPassword from './pages/auth/SetupPassword.jsx';
 
+localStorage.removeItem('token'); // Retire JWTs stored by older versions.
 createRoot(document.getElementById('root')).render(
     <BrowserRouter>
         <Routes>

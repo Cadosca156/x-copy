@@ -35,11 +35,6 @@ export default function Login() {
           <div className="x-login__form">
             <h1>В курсе<br/>происходящего.</h1>
 
-            <button className="auth-button" type="button">
-              <span className="auth-icon phone-icon" aria-hidden="true">⌕</span>
-              <span>Продолжить с телефоном</span>
-            </button>
-
             <button className="auth-button" type="button"
                     onClick={() => {
                       const oauthBase = (import.meta.env.VITE_OAUTH_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
@@ -58,11 +53,6 @@ export default function Login() {
               </svg>
             </span>
               <span>Продолжить с Google</span>
-            </button>
-
-            <button className="auth-button" type="button">
-              <span className="apple-icon" aria-hidden="true">●</span>
-              <span>Продолжить с Apple</span>
             </button>
 
             <div className="divider"><span>или</span></div>

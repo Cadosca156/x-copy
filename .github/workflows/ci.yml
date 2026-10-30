@@ -91,6 +91,7 @@ jobs:
       GOOGLE_CLIENT_SECRET: ci-client-secret
       MAIL_USERNAME: ci@example.test
       MAIL_PASSWORD: ci-only-password
+      APP_JWT_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       SPRING_MAIL_HOST: localhost
     steps:
       - name: Check out source

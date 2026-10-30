@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import process from 'node:process'
 
 // https://vite.dev/config/
 export default {
@@ -6,11 +7,11 @@ export default {
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        target: process.env.E2E_API_TARGET || "http://localhost:8080",
         changeOrigin: true
       },
       "/media": {
-        target: "http://localhost:8080",
+        target: process.env.E2E_API_TARGET || "http://localhost:8080",
         changeOrigin: true
       }
     }

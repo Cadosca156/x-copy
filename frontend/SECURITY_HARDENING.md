@@ -23,7 +23,7 @@ The existing Amplify /api proxy must forward Set-Cookie and Cookie headers witho
 
 For local HTTP-only development, explicitly set APP_AUTH_SECURE_COOKIES=false on the backend. Production keeps the default true. Never use the fixed CI signing key outside tests.
 
-Local verification includes backend unit tests and the actual Spring Security filter chain, frontend tests/lint/build, deployment-key creation/idempotence/rejection checks, and browser scenarios for email login, Google login with/without a password, pagination and logout using mocked API responses. CI additionally tests the real Redis atomic operations and starts the application against PostgreSQL, MongoDB and Redis.
+Local verification includes backend unit tests and the actual Spring Security filter chain, frontend tests/lint/build, deployment-key creation/idempotence/rejection checks, and browser E2E scenarios against the real frontend, backend, PostgreSQL, MongoDB, Redis and SMTP delivery to Mailpit. E2E uses a test OpenID Connect provider for the Google integration; Google's live login/consent and production client settings remain a deployment check. CI additionally tests real Redis atomic operations, application startup and the browser E2E suite.
 
 Scope: these fixes address the seven code/configuration findings. They do not constitute an audit of Lightsail firewall rules, Caddy, Amplify proxy settings, backups, administrator access or every dependency vulnerability.
 
@@ -33,3 +33,8 @@ Repeatable unit checks
 Run `./gradlew unitTest` in backend (PowerShell: `.\gradlew.bat unitTest`) and `npm test` in frontend. The backend unit task excludes the application/Redis integration tests and the two Spring-context security tests; it requires no database, Redis or SMTP service. The normal `test`/`check` tasks still include the complete suite in CI.
 
 Adversarial unit coverage includes expired/wrong-issuer and legacy JWTs, deleted accounts, password-reset races, account/IP throttling, Redis failure, expired/reset email-code challenges, attempt budgets across resends, concurrent challenge consumption, missing Google browser binding, revoked handoff sessions, reset-link/session invalidation, uniform recovery responses, byte/file quotas, dishonest upload lengths with partial-file cleanup, bounded database queries and oversized text rejection. Frontend unit checks cover password-setup routing, password validation and the cookie/CSRF request contract.
+
+Repeatable E2E checks
+---------------------
+
+See [e2e/README.md](e2e/README.md). After starting the disposable E2E services and building the backend JAR, run `npm run test:e2e` in frontend. All five scenarios must pass before CI allows the production deployment job to run.

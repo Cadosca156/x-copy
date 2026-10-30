@@ -43,5 +43,3 @@ class BrowserSessionTest {
         assertTrue(response.getHeader("Set-Cookie").contains("Max-Age=0"));
     }
 }
-
-

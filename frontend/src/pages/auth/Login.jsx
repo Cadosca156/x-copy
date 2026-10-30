@@ -15,10 +15,10 @@ export default function Login() {
     setError('');
     setIsLoggingIn(true);
     try {
-      const result = await loginUser({ ...login, email: login.email.trim() });
-      const data = await result.response.json();
-      if (!data.userId) throw new Error('Сервер повернув некоректну відповідь входу');
-      navigate(`/2fa?userId=${encodeURIComponent(data.userId)}`);
+      const data = await loginUser({ ...login, email: login.email.trim() });
+      if (!data.challengeId) throw new Error('Сервер повернув некоректну відповідь входу');
+      sessionStorage.setItem('loginChallenge', data.challengeId);
+      navigate('/2fa');
     } catch (failure) {
       setError(failure.message || 'Не вдалося з’єднатися із сервером');
     } finally {

@@ -24,7 +24,7 @@ public class TwoFactorCodeController {
             @RequestBody VerifyTwoFactorRequest request
     ) {
     String token = twoFactorService.verifyCode(
-            request.userId(),
+            request.challengeId(),
             request.code()
     );
         return ResponseEntity.ok(new TwoFactorResponse(token));
@@ -33,9 +33,7 @@ public class TwoFactorCodeController {
     @PostMapping("/send-code")
     public ResponseEntity<?> sendCode(
             @RequestBody SendCodeRequest request
-    ) {twoFactorService.sendCode(
-            request.userId(),
-            request.email());
+    ) {twoFactorService.resend(request.challengeId());
         return  ResponseEntity.ok().build() ;
 
     }}

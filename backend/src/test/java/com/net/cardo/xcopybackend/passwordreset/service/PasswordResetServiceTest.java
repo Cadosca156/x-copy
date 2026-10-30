@@ -84,7 +84,7 @@ class PasswordResetServiceTest {
         var twoFactor = mock(TwoFactorService.class);
         var login = new UserService(users, encoder, twoFactor);
         assertEquals(user.getId(), login.loginOrRegister(new LoginRequest(user.getEmail(), "new-password")).getUserId());
-        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(twoFactor).beginLogin(user);
         assertThrows(InvalidPasswordException.class, () -> login.loginOrRegister(new LoginRequest(user.getEmail(), "old-password")));
         assertThrows(ResponseStatusException.class, () -> service.resetPassword(request(resetToken, "another-password")));
         assertTrue(encoder.matches("new-password", user.getPassword()));

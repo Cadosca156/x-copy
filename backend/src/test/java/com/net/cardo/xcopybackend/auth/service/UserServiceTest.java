@@ -34,7 +34,7 @@ class UserServiceTest {
     void acceptsCorrectPasswordAndSendsVerificationCode() {
         var result = service.loginOrRegister(new LoginRequest(user.getEmail(), "correct-password"));
         assertEquals(user.getId(), result.getUserId());
-        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(twoFactor).beginLogin(user);
         verify(users, never()).save(any());
     }
 

@@ -11,4 +11,6 @@ public class LoginResponse {
 
     private UUID userId;
 
+    private String challengeId;
+
 }

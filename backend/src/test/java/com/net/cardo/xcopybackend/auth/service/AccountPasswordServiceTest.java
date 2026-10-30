@@ -57,7 +57,7 @@ class AccountPasswordServiceTest {
 
         assertEquals(user.getId(), response.getUserId());
         assertNotEquals("new-password-123", user.getPassword());
-        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(twoFactor).beginLogin(user);
         verify(users, never()).save(any());
     }
 

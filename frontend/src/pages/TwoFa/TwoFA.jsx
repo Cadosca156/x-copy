@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, X } from 'lucide-react';
 import {twoFactorResend, twoFactorVerify} from "../../api/authApi.js";
 import { getMyProfile } from '../../api/userApi.js';
@@ -19,10 +19,9 @@ export default function TwoFA() {
 
     const completeCode = code.join('');
 
-    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    const userId = searchParams.get("userId");
+    const challengeId = sessionStorage.getItem('loginChallenge');
 
     useEffect(() => {
         if (resendTimer <= 0) {
@@ -50,9 +49,11 @@ export default function TwoFA() {
 
     const handleTwoFactor = async (code) => {
         try {
-            const data = await twoFactorVerify(userId, code);
+            if (!challengeId) throw new Error('Почніть вхід знову');
+            const data = await twoFactorVerify(challengeId, code);
 
             localStorage.setItem("token", data.token);
+            sessionStorage.removeItem('loginChallenge');
             const profile = await getMyProfile();
 
             navigate(profile?.username ? '/feed' : '/setup-profile', { replace: true });
@@ -71,7 +72,8 @@ export default function TwoFA() {
         }
 
         try {
-            await twoFactorResend(userId);
+            if (!challengeId) throw new Error('Почніть вхід знову');
+            await twoFactorResend(challengeId);
 
             setResendTimer(RESEND_TIME);
 

@@ -28,6 +28,7 @@ public class SecurityConfig {
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final CustomOidcUserService customOidcUserService;
     private final JwtFilter jwtFilter;
+    private final com.net.cardo.xcopybackend.security.AuthRateLimitFilter authRateLimitFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -76,6 +77,7 @@ public class SecurityConfig {
                         .successHandler(oAuth2AuthenticationSuccessHandler)
                 )
 
+                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
                         jwtFilter,
                         UsernamePasswordAuthenticationFilter.class

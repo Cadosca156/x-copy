@@ -52,12 +52,7 @@ public class UserService {
             user = userRepository.save(user);
         }
 
-        twoFactorService.sendCode(
-                user.getId(),
-                user.getEmail()
-        );
-
-        return new LoginResponse(user.getId());
+        return new LoginResponse(user.getId(), twoFactorService.beginLogin(user));
     }
     public void updateUsername(User user,String username) {
         String normalized = username.trim().toLowerCase();

@@ -91,6 +91,7 @@ jobs:
       GOOGLE_CLIENT_SECRET: ci-client-secret
       MAIL_USERNAME: ci@example.test
       MAIL_PASSWORD: ci-only-password
+      APP_JWT_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       SPRING_MAIL_HOST: localhost
     steps:
       - name: Check out source
@@ -119,9 +120,62 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  e2e:
+    name: End-to-end checks
+    needs: [frontend, backend]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Install frontend test dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Build real backend
+        working-directory: backend
+        run: bash ./gradlew --no-daemon bootJar
+      - name: Start disposable databases and SMTP
+        run: docker compose -p xcopy-e2e -f frontend/e2e/compose.yaml up --detach --wait --wait-timeout 150
+      - name: Run browser end-to-end scenarios
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Save browser report and failure traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Stop disposable E2E services
+        if: always()
+        run: docker compose -p xcopy-e2e -f frontend/e2e/compose.yaml down --volumes --remove-orphans
+
   deploy:
     name: Deploy backend to Lightsail
-    needs: [frontend, backend]
+    needs: [frontend, backend, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 20

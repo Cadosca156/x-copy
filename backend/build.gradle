@@ -43,3 +43,17 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// Run isolated tests locally without PostgreSQL, MongoDB, Redis or a Spring context.
+// The regular test/check tasks continue to run the complete suite in CI.
+tasks.register('unitTest', Test) {
+    description = 'Runs isolated unit tests without external services.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    exclude '**/XcopyApplicationTests.class'
+    exclude '**/RedisAuthStoreTests.class'
+    exclude '**/BrowserSecurityFlowTest.class'
+    exclude '**/PasswordRecoveryPrivacyTest.class'
+}

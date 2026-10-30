@@ -30,7 +30,7 @@ class PasswordResetServiceTest {
     private final EmailService mail = mock(EmailService.class);
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final PasswordResetService service = new PasswordResetService(tokens, users, encoder, mail,
-            new FrontendLinks("https://app.example.test"));
+            new FrontendLinks("https://app.example.test"), mock(com.net.cardo.xcopybackend.security.EphemeralAuthStore.class));
     private User user;
     private PasswordResetToken token;
 
@@ -82,9 +82,9 @@ class PasswordResetServiceTest {
 
         service.resetPassword(request(resetToken, "new-password"));
         var twoFactor = mock(TwoFactorService.class);
-        var login = new UserService(users, encoder, twoFactor);
+        var login = new UserService(users, encoder, twoFactor, mock(com.net.cardo.xcopybackend.security.EphemeralAuthStore.class));
         assertEquals(user.getId(), login.loginOrRegister(new LoginRequest(user.getEmail(), "new-password")).getUserId());
-        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(twoFactor).beginLogin(user);
         assertThrows(InvalidPasswordException.class, () -> login.loginOrRegister(new LoginRequest(user.getEmail(), "old-password")));
         assertThrows(ResponseStatusException.class, () -> service.resetPassword(request(resetToken, "another-password")));
         assertTrue(encoder.matches("new-password", user.getPassword()));

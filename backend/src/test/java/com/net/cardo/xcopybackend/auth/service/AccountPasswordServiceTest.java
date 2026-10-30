@@ -45,7 +45,7 @@ class AccountPasswordServiceTest {
     void googleAccountCanLogInByEmailAfterCreatingItsPassword() {
         user.setId(java.util.UUID.randomUUID());
         var twoFactor = mock(com.net.cardo.xcopybackend.twofactor.service.TwoFactorService.class);
-        var login = new UserService(users, encoder, twoFactor);
+        var login = new UserService(users, encoder, twoFactor, mock(com.net.cardo.xcopybackend.security.EphemeralAuthStore.class));
         when(users.setInitialPassword(eq(user.getEmail()), anyString())).thenAnswer(invocation -> {
             user.setPassword(invocation.getArgument(1));
             return 1;
@@ -57,7 +57,7 @@ class AccountPasswordServiceTest {
 
         assertEquals(user.getId(), response.getUserId());
         assertNotEquals("new-password-123", user.getPassword());
-        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(twoFactor).beginLogin(user);
         verify(users, never()).save(any());
     }
 

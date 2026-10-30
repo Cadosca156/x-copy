@@ -1,115 +1,57 @@
 package com.net.cardo.xcopybackend.twofactor.service;
-
 import com.net.cardo.xcopybackend.email.EmailService;
-import com.net.cardo.xcopybackend.security.JwtService;
-import com.net.cardo.xcopybackend.twofactor.entity.TwoFactorCode;
+import com.net.cardo.xcopybackend.security.*;
 import com.net.cardo.xcopybackend.user.entity.User;
-import com.net.cardo.xcopybackend.exception.exceptions.InvalidTwoFactorCodeException;
-import com.net.cardo.xcopybackend.exception.exceptions.UserNotFoundException;
-import com.net.cardo.xcopybackend.twofactor.repository.TwoFactorRepository;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
+import java.time.Duration;
 import java.util.UUID;
-
-@Service
-@RequiredArgsConstructor
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import static org.springframework.http.HttpStatus.*;
+@Service @RequiredArgsConstructor
 public class TwoFactorService {
-
-   private final TwoFactorRepository twoFactorRepository;
-    private final EmailService emailService;
-    private final TwoFactorCodeGenerator twoFactorCodeGenerator;
-    private final UserRepository userRepository;
-    private final JwtService jwtService;
-
-    public void sendCode(UUID userId, String email) {
-        User user;
-
-        if (userId != null) {
-
-            user = userRepository.findById(userId)
-                    .orElseThrow(() ->
-                            new RuntimeException("User not found by ID")
-                    );
-
-        } else if (email != null && !email.isBlank()) {
-
-            user = userRepository.findByEmail(email)
-                    .orElseThrow(() ->
-                            new RuntimeException("User not found by email")
-                    );
-
-        } else {
-            throw new IllegalArgumentException(
-                    "User ID or email is required"
-            );
-        }
-
-
-        UUID actualUserId = user.getId();
-        String actualEmail = user.getEmail();
-
-       Optional<TwoFactorCode> findcode = twoFactorRepository.findCodeByUserId(actualUserId);
-
-        if (findcode.isPresent()) {
-
-            TwoFactorCode existingCode = findcode.get();
-
-            if (existingCode.getExpiresAt().isAfter(LocalDateTime.now())) {
-
-                emailService.sendEmail(actualEmail,
-                        "Verification code",
-                        "Your verification code " + existingCode.getCode());
-                return;
-            }
-            twoFactorRepository.delete(existingCode);
-
-        }
-        String code = twoFactorCodeGenerator.generateTwoFactorCode();
-
-        TwoFactorCode twoFactorCode = new TwoFactorCode();
-
-        twoFactorCode.setUserId(actualUserId);
-        twoFactorCode.setCode(code);
-        twoFactorCode.setExpiresAt(
-                LocalDateTime.now().plusMinutes(5)
-        );
-
-        twoFactorRepository.save(twoFactorCode);
-
-        emailService.sendEmail(actualEmail,
-                "Verification code",
-                "Your verification code " + code
-        );
-
+    private final EmailService mail;
+    private final TwoFactorCodeGenerator generator;
+    private final UserRepository users;
+    private final JwtService jwt;
+    private final EphemeralAuthStore store;
+    private final PasswordEncoder encoder;
+    private String key(String challenge) {
+        if(challenge==null || !challenge.matches("[A-Za-z0-9_-]{43}")) throw invalid();
+        return "security:challenge:"+EphemeralAuthStore.digest(challenge);
     }
-    public String verifyCode(UUID userId, String code) {
-
-        Optional<TwoFactorCode> optionalCode =
-                twoFactorRepository.findByUserIdAndCode(userId, code);
-
-        if (optionalCode.isEmpty()) {
-            throw new InvalidTwoFactorCodeException("Code not found");
-        }
-
-        TwoFactorCode twoFactorCode = optionalCode.get();
-
-        if (twoFactorCode.getExpiresAt().isBefore(LocalDateTime.now())) {
-            twoFactorRepository.delete(twoFactorCode);
-            throw new InvalidTwoFactorCodeException("Code expired");
-        }
-
-        twoFactorRepository.delete(twoFactorCode);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        return jwtService.generateToken(user.getEmail());
+    private ResponseStatusException invalid() { return new ResponseStatusException(BAD_REQUEST,"Код або сесія входу недійсні. Почніть вхід знову."); }
+    public String beginLogin(User user) {
+        store.limit("mail-login:"+user.getId(),5,Duration.ofMinutes(15));
+        String challenge=EphemeralAuthStore.random(), code=generator.generateTwoFactorCode();
+        store.put(key(challenge),user.getId()+"|"+user.getTokenVersion()+"|"+encoder.encode(code),Duration.ofMinutes(5));
+        mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
+        return challenge;
     }
-
-
-
+    public void resend(String challenge) {
+        String k=key(challenge), value=store.get(k);
+        if(value==null) throw invalid();
+        String[] fields=value.split("\\|");
+        User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
+        if(user.getTokenVersion()!=Integer.parseInt(fields[1])) throw invalid();
+        store.limit("resend:"+k,1,Duration.ofSeconds(60));
+        store.limit("mail-login:"+user.getId(),5,Duration.ofMinutes(15));
+        String code=generator.generateTwoFactorCode();
+        if(!store.replace(k,value,fields[0]+"|"+fields[1]+"|"+encoder.encode(code))) throw invalid();
+        mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
+    }
+    public String verifyCode(String challenge,String code) {
+        String k=key(challenge), value=store.get(k);
+        if(value==null) throw invalid();
+        // Failed attempts survive resends and are shared by all app instances.
+        store.limit("otp:"+k,5,Duration.ofMinutes(5));
+        if(code==null || !code.matches("[0-9]{6}")) throw invalid();
+        String[] fields=value.split("\\|");
+        if(!encoder.matches(code,fields[2])) throw invalid();
+        User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
+        if(user.getTokenVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
+        return jwt.generateToken(user);
+    }
 }

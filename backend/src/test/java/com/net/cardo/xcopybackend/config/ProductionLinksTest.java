@@ -6,7 +6,8 @@ import com.net.cardo.xcopybackend.email.EmailService;
 import com.net.cardo.xcopybackend.passwordreset.dto.request.ForgotPasswordRequest;
 import com.net.cardo.xcopybackend.passwordreset.repository.PasswordResetTokenRepository;
 import com.net.cardo.xcopybackend.passwordreset.service.PasswordResetService;
-import com.net.cardo.xcopybackend.security.JwtService;
+import com.net.cardo.xcopybackend.security.BrowserSessionService;
+import com.net.cardo.xcopybackend.security.EphemeralAuthStore;
 import com.net.cardo.xcopybackend.user.entity.User;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import java.util.Optional;
@@ -25,7 +26,7 @@ class ProductionLinksTest {
     @Test
     void buildsProductionLinksAndNormalizesTrailingSlash() {
         var links = new FrontendLinks(FRONTEND + "/");
-        assertEquals(FRONTEND + "/oauth2/success?token=jwt", links.oauthSuccess("jwt"));
+        assertEquals(FRONTEND + "/oauth2/success?code=jwt", links.oauthSuccess("jwt"));
         assertEquals(FRONTEND + "/reset-password?token=reset", links.resetPassword("reset"));
         assertEquals(FRONTEND + "/reset-password?token=a%26b", links.resetPassword("a&b"));
     }
@@ -44,16 +45,16 @@ class ProductionLinksTest {
 
     @Test
     void redirectsGoogleLoginToAmplify() throws Exception {
-        var jwt = mock(JwtService.class);
-        when(jwt.generateToken("user@example.test")).thenReturn("test-jwt");
-        var handler = new OAuth2AuthenticationSuccessHandler(jwt, new FrontendLinks(FRONTEND));
+        var sessions = mock(BrowserSessionService.class);
+        when(sessions.issueOAuthCode("user@example.test", "binding")).thenReturn("test-code");
+        var handler = new OAuth2AuthenticationSuccessHandler(sessions, new FrontendLinks(FRONTEND));
         var principal = mock(OAuth2User.class);
         when(principal.getAttribute("email")).thenReturn("user@example.test");
         var authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(principal);
         var response = new MockHttpServletResponse();
-        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, authentication);
-        assertEquals(FRONTEND + "/oauth2/success?token=test-jwt", response.getRedirectedUrl());
+        var request = new MockHttpServletRequest(); request.getSession().setAttribute("oauthBinding", "binding"); handler.onAuthenticationSuccess(request, response, authentication);
+        assertEquals(FRONTEND + "/oauth2/success?code=test-code", response.getRedirectedUrl());
     }
 
     @Test
@@ -65,7 +66,7 @@ class ProductionLinksTest {
         user.setId(UUID.randomUUID());
         user.setEmail("user@example.test");
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        var service = new PasswordResetService(tokens, users, mock(org.springframework.security.crypto.password.PasswordEncoder.class), mail, new FrontendLinks(FRONTEND));
+        var service = new PasswordResetService(tokens, users, mock(org.springframework.security.crypto.password.PasswordEncoder.class), mail, new FrontendLinks(FRONTEND), mock(EphemeralAuthStore.class));
         service.forgotPassword(new ForgotPasswordRequest(user.getEmail()));
         var message = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(mail).sendEmail(eq(user.getEmail()), eq("Reset password"), message.capture());

@@ -71,7 +71,7 @@ public class PostController {
 
     @GetMapping
     public ResponseEntity<List<PostResponse>> getPosts(
-            Authentication authentication
+            @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size, Authentication authentication
     ) {
 
         String email;
@@ -89,7 +89,7 @@ public class PostController {
 
         List<PostResponse> posts =
                 postService.getPosts(
-                        user.getId().toString()
+                        user.getId().toString(), page, size
                 );
 
         return ResponseEntity.ok(posts);
@@ -98,7 +98,7 @@ public class PostController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<PostResponse>> getUserPosts(
             @PathVariable String userId,
-            Authentication authentication
+            @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size, Authentication authentication
     ) {
         String email;
 
@@ -114,7 +114,7 @@ public class PostController {
         return ResponseEntity.ok(
                 postService.getUserPosts(
                         userId,
-                        currentUser.getId().toString()
+                        currentUser.getId().toString(), page, size
                 )
         );
     }
@@ -166,4 +166,3 @@ public class PostController {
         return ResponseEntity.ok(liked);
     }
 }
-

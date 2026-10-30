@@ -44,10 +44,10 @@ public class FollowController {
     }
 
     @GetMapping("/me/following/posts")
-    public List<PostResponse> followingPosts(Authentication authentication) {
+    public List<PostResponse> followingPosts(Authentication authentication, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size) {
         UUID viewer = viewerId(authentication);
         return posts.getPostsByAuthors(follows.followingIds(viewer).stream().map(UUID::toString).toList(),
-                viewer.toString());
+                viewer.toString(), page, size);
     }
 
     @PutMapping("/{userId}/follow")

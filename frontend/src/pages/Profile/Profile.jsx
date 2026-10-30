@@ -4,6 +4,7 @@ import { ArrowLeft, Camera, Home, LogOut, UserRound, X } from 'lucide-react';
 import Avatar from '../../components/Avatar.jsx';
 import { getMyProfile, updateMyAvatar, updateMyProfile } from '../../api/userApi.js';
 import { getUserPosts } from '../../api/postApi.js';
+import { apiFetch } from '../../api/api.js';
 import '../Feed/Feed.css';
 import './Profile.css';
 
@@ -18,13 +19,29 @@ export default function Profile() {
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [posts, setPosts] = useState([]);
+    const [nextPage, setNextPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    async function loadMore() {
+        if (loadingMore || !profile) return;
+        setLoadingMore(true); setPostsError('');
+        try {
+            const items = await getUserPosts(profile.id, nextPage);
+            setPosts(previous => [...previous, ...items.filter(item => !previous.some(post => post.id === item.id))]);
+            setNextPage(value => value + 1); setHasMore(items.length === 20);
+        } catch (failure) { setPostsError(failure.message); }
+        finally { setLoadingMore(false); }
+    }
     const [postsError, setPostsError] = useState('');
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
     const [retry, setRetry] = useState(0);
 
-    function logout() {
-        localStorage.removeItem('token');
-        window.location.replace('/login');
+    async function logout() {
+        try {
+            await apiFetch('/users/me/logout', { method: 'POST' });
+            sessionStorage.removeItem('loginChallenge');
+            window.location.replace('/login');
+        } catch (failure) { setError(failure.message || 'Не вдалося завершити сесію'); }
     }
 
     useEffect(() => {
@@ -38,7 +55,7 @@ export default function Profile() {
                 setIsLoading(false);
                 try {
                     const response = await getUserPosts(user.id);
-                    if (current) setPosts(Array.isArray(response) ? response : response?.content ?? []);
+                    if (current) { const items = Array.isArray(response) ? response : response?.content ?? []; setPosts(items); setHasMore(items.length === 20); setNextPage(1); }
                 } catch (failure) {
                     if (current) setPostsError(failure.message || 'Не вдалося завантажити дописи');
                 }
@@ -142,6 +159,7 @@ export default function Profile() {
                     {isLoadingPosts && <p className="timeline-message">Завантажуємо дописи…</p>}
                     {postsError && <p className="timeline-message timeline-message--error" role="alert">{postsError}</p>}
                     {!isLoadingPosts && !postsError && posts.length === 0 && <p className="timeline-message">Твої дописи з’являться тут.<br /><Link to="/feed">Створити перший допис</Link></p>}
+                    {hasMore && <button className="timeline-message" disabled={loadingMore} onClick={loadMore}>{loadingMore ? 'Завантажуємо…' : 'Завантажити ще'}</button>}
                     {posts.map(post => <article className="post" key={post.id}>
                         <Avatar person={profile} />
                         <div className="post__content">

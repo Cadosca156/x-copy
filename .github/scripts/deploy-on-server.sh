@@ -13,6 +13,7 @@ app_dir="$HOME/x-copy"
 # Also serialize deployments started outside GitHub Actions.
 exec 9> "$HOME/.cache/xcopy-deploy/deploy.lock"
 flock -w 60 9 || { echo 'Another deployment is running'; exit 1; }
+bash "$release_dir/configure-jwt-secret.sh" "$app_dir/.env"
 sudo -n docker info > /dev/null
 sudo -n docker compose version
 command -v curl > /dev/null

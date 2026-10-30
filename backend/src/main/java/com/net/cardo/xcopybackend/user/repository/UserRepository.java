@@ -24,5 +24,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("update User u set u.password = :password where u.email = :email "
             + "and (u.password is null or trim(u.password) = '')")
     int setInitialPassword(@Param("email") String email, @Param("password") String encodedPassword);
+
+    @org.springframework.transaction.annotation.Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update User u set u.tokenVersion = u.tokenVersion + 1 where u.email = :email")
+    int invalidateSessions(@Param("email") String email);
 }
 

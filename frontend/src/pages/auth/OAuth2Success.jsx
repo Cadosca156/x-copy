@@ -1,36 +1,28 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { apiFetch } from '../../api/api.js';
 import { getMyProfile, getMyPasswordStatus } from '../../api/userApi.js';
 import { getAccountSetupPath } from '../../api/accountSetup.js';
 
-function OAuth2Success() {
+export default function OAuth2Success() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [params] = useSearchParams();
     const [error, setError] = useState('');
-
+    const started = useRef(false);
     useEffect(() => {
-        const token = searchParams.get("token");
-
-        if (!token) {
-            navigate("/login");
-            return;
-        }
-
-        async function redirectAfterProfileCheck() {
+        if (started.current) return;
+        started.current = true;
+        const code = params.get('code');
+        window.history.replaceState({}, '', window.location.pathname);
+        if (!code) { navigate('/login', { replace: true }); return; }
+        async function finish() {
             try {
-                localStorage.setItem("token", token);
+                await apiFetch('/auth/oauth/exchange', { method: 'POST', body: JSON.stringify({ code }) });
                 const [profile, status] = await Promise.all([getMyProfile(), getMyPasswordStatus()]);
                 navigate(getAccountSetupPath(profile, status), { replace: true });
-            } catch (profileError) {
-                setError(profileError.message || 'Не вдалося завантажити профіль');
-            }
+            } catch (failure) { setError(failure.message || 'Спробуйте увійти знову'); }
         }
-
-        redirectAfterProfileCheck();
-    }, [navigate, searchParams]);
-
-
-    return <div>{error || 'Logging in...'}</div>;
+        finish();
+    }, [navigate, params]);
+    return <main>{error ? <><p role="alert">{error}</p><Link to="/login">Повернутися до входу</Link></> : 'Входимо…'}</main>;
 }
-
-export default OAuth2Success;

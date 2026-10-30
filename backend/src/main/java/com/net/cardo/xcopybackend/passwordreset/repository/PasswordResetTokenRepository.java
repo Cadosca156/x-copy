@@ -15,4 +15,8 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PasswordResetToken> findByToken(String token);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("update PasswordResetToken t set t.used = true where t.userId = :userId")
+    int invalidateForUser(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

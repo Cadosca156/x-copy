@@ -31,10 +31,10 @@ class CommentControllerTest {
         var legacy = new Comment();
         legacy.setUserId("invalid");
         var noId = new Comment();
-        when(service.getComments("post")).thenReturn(List.of(first, second, missing, legacy, noId));
+        when(service.getComments("post",0,20)).thenReturn(List.of(first, second, missing, legacy, noId));
         when(users.findAllById(any())).thenReturn(List.of(user));
 
-        var result = controller.getComments("post").getBody();
+        var result = controller.getComments("post",0,20).getBody();
 
         assertNotNull(result);
         assertEquals(5, result.size());

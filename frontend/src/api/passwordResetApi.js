@@ -1,6 +1,8 @@
+import { apiRequest } from './api.js';
+
 export async function sendemail(email) {
     try {
-        const response = await fetch("/api/auth/password/forgot", {
+        const response = await apiRequest('/auth/password/forgot', {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -23,7 +25,7 @@ export async function resetpassword(token, newPassword) {
         return { success: false, message: 'У посиланні немає токена. Запросіть новий лист.' };
     }
     try {
-        const response = await fetch("/api/auth/password/reset", {
+        const response = await apiRequest('/auth/password/reset', {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

@@ -27,8 +27,8 @@ public class CommentService {
             throw new RuntimeException("Post not found");
         }
 
-        if (content == null || content.isBlank()) {
-            throw new RuntimeException("Comment cannot be empty");
+        if (content == null || content.isBlank() || content.length()>5000) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Коментар має містити від 1 до 5000 символів");
         }
 
         Comment comment = new Comment();
@@ -43,14 +43,14 @@ public class CommentService {
         return savedComment;
     }
 
-    public List<Comment> getComments(String postId) {
+    public List<Comment> getComments(String postId, int page, int size) {
 
         if (!postRepository.existsById(postId)) {
             throw new RuntimeException("Post not found");
         }
 
         return commentRepository
-                .findByPostIdOrderByCreatedAtDesc(postId);
+                .findByPostIdOrderByCreatedAtDesc(postId,PostService.page(page,size));
     }
     public void deleteComment(
             String commentId,
@@ -78,4 +78,3 @@ public class CommentService {
     }
 
 }
-

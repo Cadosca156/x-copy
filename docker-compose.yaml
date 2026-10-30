@@ -55,6 +55,7 @@ services:
     volumes:
       - media_data:/app/uploads
     environment:
+      APP_JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET in the server .env before deployment}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${PSQL_NAME}
       SPRING_DATASOURCE_USERNAME: ${PSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${PSQL_PASSWORD}

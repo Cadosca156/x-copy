@@ -18,27 +18,25 @@ import org.springframework.web.bind.annotation.RestController;
 
 public class TwoFactorCodeController {
     private final TwoFactorService twoFactorService;
+    private final com.net.cardo.xcopybackend.security.BrowserSessionService sessions;
 
     @PostMapping("/verify-2fa")
-    public ResponseEntity<TwoFactorResponse> verify(
-            @RequestBody VerifyTwoFactorRequest request
+    public ResponseEntity<java.util.Map<String,Boolean>> verify(
+            @RequestBody VerifyTwoFactorRequest request,
+            jakarta.servlet.http.HttpServletResponse response
     ) {
     String token = twoFactorService.verifyCode(
-            request.userId(),
+            request.challengeId(),
             request.code()
     );
-        return ResponseEntity.ok(new TwoFactorResponse(token));
+        sessions.authenticate(response,token);
+        return ResponseEntity.ok(java.util.Map.of("authenticated",true));
     }
 
     @PostMapping("/send-code")
     public ResponseEntity<?> sendCode(
             @RequestBody SendCodeRequest request
-    ) {twoFactorService.sendCode(
-            request.userId(),
-            request.email());
+    ) {twoFactorService.resend(request.challengeId());
         return  ResponseEntity.ok().build() ;
 
     }}
-
-
-

@@ -18,7 +18,7 @@ class UserServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final TwoFactorService twoFactor = mock(TwoFactorService.class);
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(4);
-    private final UserService service = new UserService(users, passwords, twoFactor);
+    private final UserService service = new UserService(users, passwords, twoFactor, mock(com.net.cardo.xcopybackend.security.EphemeralAuthStore.class));
     private User user;
 
     @BeforeEach
@@ -34,7 +34,7 @@ class UserServiceTest {
     void acceptsCorrectPasswordAndSendsVerificationCode() {
         var result = service.loginOrRegister(new LoginRequest(user.getEmail(), "correct-password"));
         assertEquals(user.getId(), result.getUserId());
-        verify(twoFactor).sendCode(user.getId(), user.getEmail());
+        verify(twoFactor).beginLogin(user);
         verify(users, never()).save(any());
     }
 

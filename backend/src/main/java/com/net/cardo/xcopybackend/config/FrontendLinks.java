@@ -21,7 +21,8 @@ public class FrontendLinks {
     }
 
     public String oauthSuccess(String token) {
-        return link("/oauth2/success", token);
+        return UriComponentsBuilder.fromUriString(baseUrl).path("/oauth2/success")
+                .queryParam("code", "{code}").encode().buildAndExpand(token).toUriString();
     }
 
     public String resetPassword(String token) {

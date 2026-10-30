@@ -35,7 +35,7 @@ public class ProfileService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
         String previousAvatar = user.getAvatarUrl();
-        MediaStorageService.StoredMedia media = mediaStorageService.store(file);
+        MediaStorageService.StoredMedia media = mediaStorageService.store(file, user.getId());
         user.setAvatarUrl(media.url());
         User saved;
         try {

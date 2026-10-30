@@ -2,6 +2,7 @@ import { useState } from "react";
 import "../../styles/Login.css";
 import  {loginUser} from "../../api/authApi.js";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from '../../api/api.js';
 export default function Login() {
   const [login, setLogin] = useState({
     email: "",
@@ -15,10 +16,10 @@ export default function Login() {
     setError('');
     setIsLoggingIn(true);
     try {
-      const result = await loginUser({ ...login, email: login.email.trim() });
-      const data = await result.response.json();
-      if (!data.userId) throw new Error('Сервер повернув некоректну відповідь входу');
-      navigate(`/2fa?userId=${encodeURIComponent(data.userId)}`);
+      const data = await loginUser({ ...login, email: login.email.trim() });
+      if (!data.challengeId) throw new Error('Сервер повернув некоректну відповідь входу');
+      sessionStorage.setItem('loginChallenge', data.challengeId);
+      navigate('/2fa');
     } catch (failure) {
       setError(failure.message || 'Не вдалося з’єднатися із сервером');
     } finally {
@@ -36,9 +37,15 @@ export default function Login() {
             <h1>В курсе<br/>происходящего.</h1>
 
             <button className="auth-button" type="button"
-                    onClick={() => {
-                      const oauthBase = (import.meta.env.VITE_OAUTH_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
-                      window.location.href = `${oauthBase}/oauth2/authorization/google`;
+                    disabled={isLoggingIn}
+                    onClick={async () => {
+                      setIsLoggingIn(true);
+                      setError('');
+                      try {
+                        const start = await apiFetch('/auth/oauth/start', { method: 'POST' });
+                        const oauthBase = (import.meta.env.VITE_OAUTH_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+                        window.location.href = `${oauthBase}/oauth2/authorization/google?app_login=${encodeURIComponent(start.startId)}`;
+                      } catch (failure) { setError(failure.message); setIsLoggingIn(false); }
                     }}>
             <span className="google-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">

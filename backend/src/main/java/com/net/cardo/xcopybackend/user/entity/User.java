@@ -30,4 +30,7 @@ public class User {
     private String avatarUrl;
 
     private String password;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int tokenVersion;
 }

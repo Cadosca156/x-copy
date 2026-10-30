@@ -57,10 +57,10 @@ public class CommentController {
 
     @GetMapping("/{postId}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(
-            @PathVariable String postId
+            @PathVariable String postId, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size
     ) {
 
-        var comments = commentService.getComments(postId);
+        var comments = commentService.getComments(postId,page,size);
         var ids = comments.stream().map(c -> parseUserId(c.getUserId()))
                 .filter(Objects::nonNull).distinct().toList();
         var authors = userRepository.findAllById(ids).stream()

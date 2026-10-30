@@ -20,8 +20,15 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TwoFactorService twoFactorService;
+    private final com.net.cardo.xcopybackend.security.EphemeralAuthStore securityStore;
 
     public LoginResponse loginOrRegister(LoginRequest request) {
+        if(request==null || request.email()==null || request.email().length()>254 || !request.email().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") ||
+           request.password()==null || request.password().isBlank() || request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Перевірте email та пароль");
+        }
+        securityStore.limit("password:"+request.email().toLowerCase(java.util.Locale.ROOT),10,java.time.Duration.ofMinutes(15));
+
 
         Optional<User> optionalUser =
                 userRepository.findByEmail(request.email());
@@ -42,6 +49,7 @@ public class UserService {
 
         } else {
 
+            if(request.password().length()<8) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Пароль має містити щонайменше 8 символів");
             user = new User();
 
             user.setEmail(request.email());
@@ -52,12 +60,7 @@ public class UserService {
             user = userRepository.save(user);
         }
 
-        twoFactorService.sendCode(
-                user.getId(),
-                user.getEmail()
-        );
-
-        return new LoginResponse(user.getId());
+        return new LoginResponse(user.getId(), twoFactorService.beginLogin(user));
     }
     public void updateUsername(User user,String username) {
         String normalized = username.trim().toLowerCase();

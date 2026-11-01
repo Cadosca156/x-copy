@@ -56,4 +56,5 @@ tasks.register('unitTest', Test) {
     exclude '**/RedisAuthStoreTests.class'
     exclude '**/BrowserSecurityFlowTest.class'
     exclude '**/PasswordRecoveryPrivacyTest.class'
+    exclude '**/PostFeedBatchIntegrationTests.class'
 }

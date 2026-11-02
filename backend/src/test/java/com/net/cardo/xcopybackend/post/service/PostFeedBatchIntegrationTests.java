@@ -100,8 +100,9 @@ class PostFeedBatchIntegrationTests {
         assertEquals(Set.of(new PostCount(page.get(0).getId(),2),new PostCount(page.get(1).getId(),1)),
                 new HashSet<>(likes.countForPosts(ids)));
         assertEquals(List.of(new PostCount(page.get(0).getId(),2)),comments.countForPosts(ids));
-        // A legacy duplicate must not grow the liked-ID result beyond the page size.
-        saveLike(page.get(0).getId(),viewer);
+        // The startup migration now prevents duplicate pairs at the database boundary.
+        assertThrows(org.springframework.dao.DuplicateKeyException.class,
+                () -> saveLike(page.get(0).getId(),viewer));
         assertEquals(List.of(new LikedPostId(page.get(0).getId())),likes.findLikedPostIds(ids,viewer));
         assertEquals(2,likes.findLikedPostIds(ids,"another-viewer").size());
         assertEquals(List.of(),likes.findLikedPostIds(ids,"unknown-viewer"));

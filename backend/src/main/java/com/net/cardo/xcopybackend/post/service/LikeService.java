@@ -5,6 +5,7 @@ import com.net.cardo.xcopybackend.post.repository.LikeRepository;
 import com.net.cardo.xcopybackend.post.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.LocalDateTime;
 
@@ -45,7 +46,12 @@ public class LikeService {
         like.setUserId(userId);
         like.setCreatedAt(LocalDateTime.now());
 
-        likeRepository.save(like);
+        try {
+            likeRepository.save(like);
+        } catch (DuplicateKeyException concurrentLike) {
+            // Both requests can observe no like; the unique pair index chooses one insert.
+            if (!likeRepository.existsByPostIdAndUserId(postId, userId)) throw concurrentLike;
+        }
         feedCacheService.invalidate();
 
         return true;

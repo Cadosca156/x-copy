@@ -99,6 +99,15 @@ class MongoQueryIndexMigrationIntegrationTests {
         assertEquals(1,mongo.getCollection("likes").countDocuments());
         assertEquals(0,mongo.getCollection(MongoQueryIndexMigration.ARCHIVE).countDocuments());
     }
+    @Test void conflictingArchiveSnapshotDoesNotAllowDeletingTheActiveDocument() {
+        var source = mongo.getCollection("likes");
+        source.insertMany(List.of(like("a","post","user"),like("b","post","user")));
+        mongo.getCollection(MongoQueryIndexMigration.ARCHIVE).insertMany(List.of(
+                new Document("_id","a").append("document",new Document("incorrect",true)),
+                new Document("_id","b").append("document",new Document("incorrect",true))));
+        assertThrows(IllegalStateException.class,()->migration.migrate());
+        assertEquals(2,source.countDocuments());
+    }
     @Test void conflictingNamedIndexIsNotDroppedOrSilentlyReplaced() {
         mongo.getCollection("posts").createIndex(new Document("userId",1),
                 new IndexOptions().name(MongoQueryIndexMigration.FEED_INDEX));

@@ -130,5 +130,9 @@ public class MongoQueryIndexMigration implements InitializingBean {
                 .append("archivedAt", new Date()).append("document", new Document(original));
         archive.updateOne(new Document("_id", original.get("_id")), new Document("$setOnInsert", backup),
                 new UpdateOptions().upsert(true));
+        Document persisted = archive.find(new Document("_id", original.get("_id"))).first();
+        if (persisted == null || !original.equals(persisted.get("document", Document.class))) {
+            throw new IllegalStateException("Archived like snapshot does not match the active document; inspect it before retrying");
+        }
     }
 }

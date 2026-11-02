@@ -5,7 +5,8 @@ import com.net.cardo.xcopybackend.post.repository.*;
 import com.net.cardo.xcopybackend.user.entity.User;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import java.util.List;
-import java.util.Optional;
+import com.net.cardo.xcopybackend.post.repository.projection.PostCount;
+import com.net.cardo.xcopybackend.post.repository.projection.LikedPostId;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -34,15 +35,15 @@ class PostServiceTest {
         UUID activeId = UUID.randomUUID();
         UUID deletedId = UUID.randomUUID();
         var author = new User();
-        author.setUsername("active");
+        author.setId(activeId); author.setUsername("active");
         author.setDisplayName("Active User");
         author.setAvatarUrl("/media/posts/avatar.png");
-        when(users.findById(activeId)).thenReturn(Optional.of(author));
+        when(users.findAllById(any())).thenReturn(List.of(author));
         when(posts.findAllByOrderByCreatedAtDesc(any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of(
                 post("old-post", deletedId.toString()), post("active-post", activeId.toString())));
-        when(likes.countByPostId("old-post")).thenReturn(3L);
-        when(comments.countByPostId("old-post")).thenReturn(2L);
-        when(likes.existsByPostIdAndUserId("old-post", "viewer")).thenReturn(true);
+        when(likes.countForPosts(anyList())).thenReturn(List.of(new PostCount("old-post", 3L)));
+        when(comments.countForPosts(anyList())).thenReturn(List.of(new PostCount("old-post", 2L)));
+        when(likes.findLikedPostIds(anyList(), eq("viewer"))).thenReturn(List.of(new LikedPostId("old-post")));
 
         var feed = service.getPosts("viewer");
         assertEquals(2, feed.size());
@@ -79,7 +80,7 @@ class PostServiceTest {
     void databaseOutageIsNotMistakenForADeletedAuthor() {
         UUID id = UUID.randomUUID();
         when(posts.findAllByOrderByCreatedAtDesc(any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of(post("post", id.toString())));
-        when(users.findById(id)).thenThrow(new DataAccessResourceFailureException("Database unavailable"));
+        when(users.findAllById(any())).thenThrow(new DataAccessResourceFailureException("Database unavailable"));
         assertThrows(DataAccessResourceFailureException.class, () -> service.getPosts("viewer"));
     }
 

@@ -23,7 +23,7 @@ class CapacityErrorResponseTest {
         for(RuntimeException failure:List.of(new org.springframework.dao.QueryTimeoutException("private SQL"),
                 new org.springframework.core.task.TaskRejectedException("private queue"),
                 new org.springframework.mail.MailSendException("private SMTP"))) {
-            when(posts.getPosts(anyString(),anyInt(),anyInt())).thenThrow(failure);
+            doThrow(failure).when(posts).getPosts(anyString(),anyInt(),anyInt());
             mvc.perform(get("/api/posts").principal(principal)).andExpect(status().isServiceUnavailable())
                     .andExpect(header().string("Retry-After","2"))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private"))));

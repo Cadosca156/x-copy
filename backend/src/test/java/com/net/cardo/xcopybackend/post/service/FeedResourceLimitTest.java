@@ -16,7 +16,7 @@ class FeedResourceLimitTest {
     private final CommentRepository comments = mock(CommentRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final MediaStorageService media = mock(MediaStorageService.class);
-    private final FeedCacheService cache = mock(FeedCacheService.class);
+    private final FeedCacheService cache = FeedCacheTestSupport.passthrough();
     private final PostService service = new PostService(posts,likes,comments,users,media,cache);
     @Test void everyFeedQueriesOnlyTheRequestedPage() {
         service.getPosts("viewer",2,20);

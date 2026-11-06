@@ -5,6 +5,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.nio.file.Path;
+import java.io.IOException;
+import org.springframework.core.io.Resource;
+import org.springframework.web.servlet.resource.PathResourceResolver;
 
 @Configuration
 public class MediaWebConfig implements WebMvcConfigurer {
@@ -16,6 +19,14 @@ public class MediaWebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/media/posts/**").addResourceLocations(location);
+        registry.addResourceHandler("/media/posts/**").addResourceLocations(location)
+                .resourceChain(true).addResolver(new PublicMediaResolver());
+    }
+
+    static class PublicMediaResolver extends PathResourceResolver {
+        @Override protected Resource getResource(String path,Resource location) throws IOException {
+            for(String part:path.replace('\\','/').split("/"))if(part.startsWith("."))return null;
+            return super.getResource(path,location);
+        }
     }
 }

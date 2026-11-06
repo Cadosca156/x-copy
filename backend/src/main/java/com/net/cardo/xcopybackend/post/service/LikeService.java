@@ -15,7 +15,6 @@ public class LikeService {
 
     private final LikeRepository likeRepository;
     private final PostRepository postRepository;
-    private final FeedCacheService feedCacheService;
 
     public boolean toggleLike(String postId, String userId) {
 
@@ -35,7 +34,7 @@ public class LikeService {
                     postId,
                     userId
             );
-            feedCacheService.invalidate();
+
 
             return false;
         }
@@ -52,7 +51,7 @@ public class LikeService {
             // Both requests can observe no like; the unique pair index chooses one insert.
             if (!likeRepository.existsByPostIdAndUserId(postId, userId)) throw concurrentLike;
         }
-        feedCacheService.invalidate();
+
 
         return true;
     }

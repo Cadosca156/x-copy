@@ -1,6 +1,5 @@
 package com.net.cardo.xcopybackend.profile.service;
 
-import com.net.cardo.xcopybackend.post.service.FeedCacheService;
 import com.net.cardo.xcopybackend.post.service.MediaStorageService;
 import com.net.cardo.xcopybackend.user.dto.request.UpdateProfileRequest;
 import com.net.cardo.xcopybackend.user.entity.User;
@@ -16,15 +15,13 @@ import static org.mockito.Mockito.*;
 
 class ProfileServiceTest {
     private UserRepository repository;
-    private FeedCacheService cache;
     private ProfileService service;
     private User user;
 
     @BeforeEach
     void setUp() {
         repository = mock(UserRepository.class);
-        cache = mock(FeedCacheService.class);
-        service = new ProfileService(repository, mock(MediaStorageService.class), cache);
+        service = new ProfileService(repository, mock(MediaStorageService.class));
         user = new User();
         user.setId(UUID.randomUUID());
         user.setUsername("Старе ім’я");
@@ -40,7 +37,7 @@ class ProfileServiceTest {
         assertEquals("Нове ім’я", result.displayName());
         assertEquals("Старе ім’я", result.username());
         assertEquals("/media/posts/avatar.png", result.avatarUrl());
-        verify(cache).invalidate();
+
         verify(repository, never()).existsByUsernameIgnoreCase(any());
     }
 

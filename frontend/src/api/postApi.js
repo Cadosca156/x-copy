@@ -1,4 +1,5 @@
-import { apiFetch } from "./api";
+import { apiFetch } from "./api.js";
+import { feedPagePath, readFeedPage } from './feedPagination.js';
 
 export function createPost(content, file) {
     const body = new FormData();
@@ -11,12 +12,12 @@ export function createPost(content, file) {
     });
 }
 
-export function getPosts(page = 0) {
-    return apiFetch(`/posts?page=${page}&size=20`);
+export function getPosts(cursor = null) {
+    return apiFetch(feedPagePath('/posts', cursor)).then(readFeedPage);
 }
 
-export function getUserPosts(userId, page = 0) {
-    return apiFetch(`/posts/user/${userId}?page=${page}&size=20`);
+export function getUserPosts(userId, cursor = null) {
+    return apiFetch(feedPagePath(`/posts/user/${encodeURIComponent(userId)}`, cursor)).then(readFeedPage);
 }
 
 export function deletePost(id) {

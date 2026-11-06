@@ -21,7 +21,11 @@ public class FeedCacheService {
 
     /** Only post membership/content is cached; viewer metadata is loaded afterwards. */
     public List<Post> load(String scope, int page, int size, Supplier<List<Post>> loader) {
-        synchronized (stripes[Math.floorMod(Objects.hash(scope,page,size),stripes.length)]) {
+        return load(scope,"offset:"+page,size,loader);
+    }
+
+    public List<Post> load(String scope, String position, int size, Supplier<List<Post>> loader) {
+        synchronized (stripes[Math.floorMod(Objects.hash(scope,position,size),stripes.length)]) {
             String generation;
             try {
                 generation = redis.opsForValue().get(versionKey(scope));
@@ -32,7 +36,7 @@ public class FeedCacheService {
             }
             catch (RuntimeException unavailable) { return loader.get(); }
             if(generation == null)return loader.get();
-            String key = scope + ":" + Objects.toString(generation,"0") + ":" + page + ":" + size;
+            String key = scope + ":" + generation + ":" + position + ":" + size;
             org.springframework.cache.Cache cache;
             try {
                 cache = caches.getCache(CACHE_NAME);

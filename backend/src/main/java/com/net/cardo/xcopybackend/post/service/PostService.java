@@ -1,6 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
 import com.net.cardo.xcopybackend.post.dto.response.PostResponse;
+import com.net.cardo.xcopybackend.post.dto.response.PostWindow;
 import com.net.cardo.xcopybackend.post.entity.Post;
 import com.net.cardo.xcopybackend.post.repository.CommentRepository;
 import com.net.cardo.xcopybackend.post.repository.LikeRepository;
@@ -110,6 +111,34 @@ public class PostService {
         var pageable = page(page, size);
         return toResponses(feedCacheService.load("all",page,size,
                 () -> postRepository.findAllByOrderByCreatedAtDesc(pageable)), currentUserId);
+    }
+
+    public PostWindow getPostWindow(String viewer,String cursor,int size) {
+        return window("all",null,null,viewer,cursor,size,true);
+    }
+    public PostWindow getUserPostWindow(String author,String viewer,String cursor,int size) {
+        try { author=UUID.fromString(author).toString(); }
+        catch(IllegalArgumentException invalid) {throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Неправильний ID автора");}
+        return window("author:"+author,author,null,viewer,cursor,size,true);
+    }
+    public PostWindow getFollowingPostWindow(List<String> authors,String viewer,String cursor,int size) {
+        return window("following:"+viewer,null,authors,viewer,cursor,size,false);
+    }
+    private PostWindow window(String scope,String author,List<String> authors,String viewer,String cursor,int size,boolean cacheStart) {
+        if(size<1 || size>50)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Неприпустимий розмір сторінки");
+        var before=FeedCursor.decode(scope,cursor);
+        if(authors!=null && authors.isEmpty())return new PostWindow(List.of(),null,false);
+        java.util.function.Supplier<List<Post>> loader=()->postRepository.findWindow(author,authors,before,size+1);
+        // Only the common first window is cached; arbitrary positions do not grow Redis keyspace.
+        List<Post> found=before==null && cacheStart?feedCacheService.load(scope,"cursor:start",size+1,loader):loader.get();
+        boolean more=found.size()>size;
+        List<Post> visible=found.subList(0,Math.min(size,found.size()));
+        String next=null;
+        if(more) {
+            Post last=visible.get(visible.size()-1);
+            next=FeedCursor.encode(scope,new FeedCursor.Position(last.getCreatedAt(),last.getId()));
+        }
+        return new PostWindow(toResponses(visible,viewer),next,more);
     }
 
     public List<PostResponse> getUserPosts(String userId, String currentUserId, int page, int size) {

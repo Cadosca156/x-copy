@@ -23,7 +23,7 @@ Five browser scenarios cover:
 
 - Email registration, delivered verification code, profile setup, file upload/display, posts, likes/comments, deletion, logout and rejection of the former session.
 - Recovery mail, identical known/unknown-email responses, reset-link reuse rejection, old-session/password rejection and successful new-password login.
-- Database pagination, rejection of missing CSRF tokens and forged image content, and rejection of deleting another account's post.
+- Cursor pagination in the feed, profile and following feed; continuation across a new insert and deleted anchor; rejection of malformed/cross-scope cursors, missing CSRF tokens, forged image content and deleting another account's post.
 - OIDC login with password/profile setup, replay rejection for the handoff code, subsequent email login and subsequent OIDC login.
 - Rejection of public-user-ID login bypass and exhaustion of the code-attempt budget.
 

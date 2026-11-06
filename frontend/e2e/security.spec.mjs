@@ -91,13 +91,35 @@ test('real database pagination, CSRF rejection, spoofed upload and post ownershi
         expect(response.status()).toBe(201);ids.push((await response.json()).id);
     }
     await page.reload();await expect(page.locator('article.post')).toHaveCount(20);
+    const firstWindow = await (await context.request.get('/api/posts?pagination=cursor&size=20')).json();
+    expect(firstWindow.items).toHaveLength(20);expect(firstWindow.hasMore).toBe(true);expect(firstWindow.nextCursor).toBeTruthy();
+    const late = await mutate(context.request,'/api/posts',{multipart:{content:'New post during cursor scrolling'}});
+    expect(late.status()).toBe(201);
+    const anchor = firstWindow.items.at(-1).id;
+    expect((await mutate(context.request,'/api/posts/'+anchor,{method:'DELETE'})).status()).toBe(204);
     await page.getByRole('button',{name:'Завантажити ще',exact:true}).click();
     await expect(page.locator('article.post')).toHaveCount(21);
+    await expect(page.getByText('New post during cursor scrolling',{exact:true})).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Завантажити ще',exact:true})).toHaveCount(0);
+    expect((await context.request.get('/api/posts?pagination=cursor&cursor=bad')).status()).toBe(400);
+    expect((await context.request.get('/api/posts?pagination=cursor&page=0')).status()).toBe(400);
     expect((await context.request.get('/api/posts?page=0&size=100000')).status()).toBe(400);
+    const owner = await (await context.request.get('/api/users/me')).json();
+    await page.goto('/profile');await expect(page.locator('article.post')).toHaveCount(20);
+    await page.getByRole('button',{name:'Завантажити ще',exact:true}).click();
+    await expect(page.locator('article.post')).toHaveCount(21);
+    await expect(page.getByRole('button',{name:'Завантажити ще',exact:true})).toHaveCount(0);
     const other = await browser.newContext({baseURL:'http://localhost:15173'});
     try{
         const second = await other.newPage();await register(second);
         expect((await mutate(other.request,'/api/posts/'+ids[0],{method:'DELETE'})).status()).toBe(403);
+        expect((await mutate(other.request,'/api/users/'+owner.id+'/follow',{method:'PUT'})).status()).toBe(204);
+        await second.reload();await second.getByRole('button',{name:'Following',exact:true}).click();
+        await expect(second.locator('article.post')).toHaveCount(20);
+        await second.getByRole('button',{name:'Завантажити ще',exact:true}).click();
+        await expect(second.locator('article.post')).toHaveCount(21);
+        const emptyScope = await other.request.get('/api/users/me/following/posts?pagination=cursor&cursor='+firstWindow.nextCursor);
+        expect(emptyScope.status()).toBe(400);
     }finally{await other.close();}
 });
 

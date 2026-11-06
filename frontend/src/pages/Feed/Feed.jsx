@@ -419,20 +419,21 @@ export default function Feed() {
     const timelineRef = useRef(null);
     const [activeTab, setActiveTab] = useState('For you');
     const [posts, setPosts] = useState([]);
-    const [nextPage, setNextPage] = useState(1);
+    const [nextCursor, setNextCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const feedRevision = useRef(0);
     async function loadMore() {
-        if (loadingMore || isLoadingPosts) return;
+        if (loadingMore || isLoadingPosts || !nextCursor) return;
         const revision = feedRevision.current;
         setLoadingMore(true);
         try {
-            const items = await (activeTab === 'Following' ? getFollowingPosts(nextPage) : getPosts(nextPage));
+            const response = await (activeTab === 'Following' ? getFollowingPosts(nextCursor) : getPosts(nextCursor));
+            const items = response.items;
             if (revision !== feedRevision.current) return;
             setPosts(previous => [...previous, ...items.map(normalizePost).filter(item => !previous.some(post => post.id === item.id))]);
-            setNextPage(value => value + 1);
-            setHasMore(items.length === 20);
+            setNextCursor(response.nextCursor);
+            setHasMore(response.hasMore);
         } catch (error) { if (revision === feedRevision.current) setPostsError(error.message); }
         finally { if (revision === feedRevision.current) setLoadingMore(false); }
     }
@@ -467,16 +468,16 @@ export default function Feed() {
         let isCurrent = true;
 
         async function loadPosts() {
-            feedRevision.current += 1; setNextPage(1); setHasMore(false); setLoadingMore(false);
+            feedRevision.current += 1; setNextCursor(null); setHasMore(false); setLoadingMore(false);
             setIsLoadingPosts(true);
             setPostsError('');
 
             try {
                 const response = await (activeTab === 'Following' ? getFollowingPosts() : getPosts());
-                const items = Array.isArray(response) ? response : response?.content ?? response?.posts ?? [];
+                const items = response.items;
 
                 if (isCurrent) {
-                    setPosts(items.map(normalizePost)); setHasMore(items.length === 20);
+                    setPosts(items.map(normalizePost)); setHasMore(response.hasMore); setNextCursor(response.nextCursor);
                 }
             } catch (error) {
                 if (isCurrent) {

@@ -53,4 +53,11 @@ class CapacityFilterTest {
         });
         assertThrows(IllegalArgumentException.class,()->new CapacityFilter(0,1,1,1,1));
     }
+    @Test void encodedRouteUsesTheContainersDecodedPathForItsCategory() throws Exception {
+        var filter=new CapacityFilter(2,1,1,1,1);var encoded=request("GET","/api/%70osts");encoded.setServletPath("/api/posts");
+        var response=new MockHttpServletResponse();
+        filter.doFilter(request("GET","/api/posts"),new MockHttpServletResponse(),(a,b)->
+                filter.doFilter(encoded,response,(c,d)->fail("Encoded path bypassed read capacity")));
+        assertEquals(503,response.getStatus());
+    }
 }

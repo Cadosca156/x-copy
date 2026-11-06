@@ -25,7 +25,7 @@ public class CapacityFilter extends OncePerRequestFilter {
         this.reads=new Semaphore(reads);this.uploads=new Semaphore(uploads);this.media=new Semaphore(media);
     }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path=request.getRequestURI().substring(request.getContextPath().length());
+        String path=path(request);
         return "OPTIONS".equals(request.getMethod()) || !(path.startsWith("/api/")
                 || path.startsWith("/media/") || path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/"));
     }
@@ -44,7 +44,7 @@ public class CapacityFilter extends OncePerRequestFilter {
         }
     }
     private Semaphore category(HttpServletRequest request) {
-        String path=request.getRequestURI().substring(request.getContextPath().length());
+        String path=path(request);
         if(request.getContentType()!=null && request.getContentType().toLowerCase(java.util.Locale.ROOT).startsWith("multipart/form-data"))return uploads;
         if(path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/")
                 || path.startsWith("/api/auth/") && !"GET".equals(request.getMethod()))return auth;
@@ -52,6 +52,11 @@ public class CapacityFilter extends OncePerRequestFilter {
         if("GET".equals(request.getMethod()) && (path.equals("/api/posts") || path.startsWith("/api/posts/")
                 || path.equals("/api/users/me/following/posts")))return reads;
         return null;
+    }
+    private String path(HttpServletRequest request) {
+        // The container's decoded servlet path also removes matrix path parameters.
+        String path=request.getServletPath();
+        return path==null || path.isEmpty()?request.getRequestURI().substring(request.getContextPath().length()):path;
     }
     private void reject(HttpServletResponse response) throws IOException {
         response.setStatus(503);response.setHeader("Retry-After","2");response.setHeader("Cache-Control","no-store");

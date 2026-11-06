@@ -25,12 +25,15 @@ export function deletePost(id) {
         method: "DELETE"
     });
 }
-export function toggleLike(postId) {
-
-    return apiFetch(`/posts/${postId}/like`, {
-        method: "POST"
+export async function setLike(postId, liked) {
+    if (typeof liked !== 'boolean') throw new Error('Вкажіть бажаний стан лайка');
+    const state = await apiFetch(`/posts/${encodeURIComponent(postId)}/like`, {
+        method: liked ? 'PUT' : 'DELETE'
     });
-
+    if (typeof state?.likedByMe !== 'boolean' || !Number.isSafeInteger(state.likesCount) || state.likesCount < 0) {
+        throw new Error('Не вдалося підтвердити стан лайка. Оновіть стрічку.');
+    }
+    return state;
 }
 export function postComment(id, content) {
     return apiFetch(`/posts/${id}/comments`, {

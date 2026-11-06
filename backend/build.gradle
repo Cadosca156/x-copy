@@ -63,4 +63,5 @@ tasks.register('unitTest', Test) {
     exclude '**/CapacityIntegrationTests.class'
     exclude '**/PostWindowQueryIntegrationTests.class'
     exclude '**/PostCleanupIntegrationTests.class'
+    exclude '**/LikeIdempotencyIntegrationTests.class'
 }

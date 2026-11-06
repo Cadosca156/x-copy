@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import './Feed.css';
 import './CreatePost.css'
-import { createPost, deleteComment, deletePost, getComments, getPosts, postComment, toggleLike as togglePostLike } from "../../api/postApi.js";
+import { createPost, deleteComment, deletePost, getComments, getPosts, postComment, setLike as setPostLike } from "../../api/postApi.js";
 import { getMyProfile } from '../../api/userApi.js';
 import { followUser, unfollowUser, getFollowingIds, getFollowingPosts, getSuggestedUsers } from '../../api/followApi.js';
 
@@ -51,7 +51,6 @@ const navigation = [
 
 
 const avatarTones = ['violet', 'coral', 'sky', 'amber', 'mint', 'rose', 'blue'];
-const likedPostsStorageKey = 'x-copy-liked-post-ids';
 const acceptedMediaTypes = [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     'video/mp4', 'video/webm', 'video/quicktime',
@@ -70,35 +69,6 @@ function getUsername(person, fallbackName) {
 
 function getInitials(displayName) {
     return displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'U';
-}
-
-function getStoredLikedPostIds() {
-    try {
-        const storedIds = JSON.parse(localStorage.getItem(likedPostsStorageKey) ?? '[]');
-        return new Set(Array.isArray(storedIds) ? storedIds.map(String) : []);
-    } catch {
-        return new Set();
-    }
-}
-
-function isPostStoredAsLiked(postId) {
-    return getStoredLikedPostIds().has(String(postId));
-}
-
-function storePostLike(postId, isLiked) {
-    try {
-        const likedPostIds = getStoredLikedPostIds();
-
-        if (isLiked) {
-            likedPostIds.add(String(postId));
-        } else {
-            likedPostIds.delete(String(postId));
-        }
-
-        localStorage.setItem(likedPostsStorageKey, JSON.stringify([...likedPostIds]));
-    } catch {
-        // Серверний лайк уже збережений; локальний fallback просто недоступний.
-    }
 }
 
 function formatPostTime(value) {
@@ -122,7 +92,6 @@ function normalizePost(post, index = 0) {
     const username = getUsername({ ...author, username: author.username ?? post.authorUsername ?? post.username, handle: author.handle ?? post.handle }, displayName);
 
     const id = post.id ?? post.postId ?? `${post.createdAt ?? 'post'}-${index}`;
-    const serverLikedStatus = post.likedByMe ?? post.likedbyme ?? post.liked ?? post.isLiked ?? post.isLikedByCurrentUser ?? post.likedByCurrentUser ?? post.userLiked;
 
     return {
         id,
@@ -139,8 +108,7 @@ function normalizePost(post, index = 0) {
         replies: Number(post.repliesCount ?? post.commentsCount ?? post.commentCount ?? 0),
         reposts: Number(post.repostsCount ?? 0),
         likes: Number(post.likesCount ?? post.likeCount ?? post.likes ?? 0),
-        liked: Boolean(serverLikedStatus),
-        hasLikedStatus: typeof serverLikedStatus === 'boolean',
+        liked: Boolean(post.likedByMe),
         views: Number(post.viewsCount ?? 0),
     };
 }
@@ -161,9 +129,10 @@ function normalizeComment(comment, index = 0) {
 
 function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFollow }) {
     const isOwnPost = Boolean(currentUserId && post.userId && String(currentUserId) === String(post.userId));
-    const [liked, setLiked] = useState(() => post.hasLikedStatus ? post.liked : isPostStoredAsLiked(post.id));
+    const [liked, setLiked] = useState(post.liked);
     const [likesCount, setLikesCount] = useState(post.likes);
     const [likeLoading, setLikeLoading] = useState(false);
+    const [likeError, setLikeError] = useState('');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
@@ -182,10 +151,9 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
 
     // Sync refreshed server values before rendering, preserving local interaction state.
     if (previousPost.id !== post.id || previousPost.liked !== post.liked
-        || previousPost.hasLikedStatus !== post.hasLikedStatus
         || previousPost.likes !== post.likes || previousPost.replies !== post.replies) {
         setPreviousPost(post);
-        setLiked(post.hasLikedStatus ? post.liked : isPostStoredAsLiked(post.id));
+        setLiked(post.liked);
         setLikesCount(post.likes);
         setCommentsCount(post.replies);
     }
@@ -264,23 +232,16 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
         setLiked(nextLiked);
         setLikesCount(nextLikesCount);
         setLikeLoading(true);
+        setLikeError('');
 
         try {
-            const response = await togglePostLike(post.id);
-            const serverLiked = response?.likedByMe ?? response?.likedbyme ?? response?.liked ?? response?.isLiked ?? response?.isLikedByCurrentUser ?? response?.likedByCurrentUser ?? response?.userLiked;
-            const serverLikesCount = response?.likesCount ?? response?.likeCount ?? response?.likes;
-
-            if (typeof serverLiked === 'boolean') {
-                setLiked(serverLiked);
-            }
-            if (Number.isFinite(Number(serverLikesCount))) {
-                setLikesCount(Number(serverLikesCount));
-            }
-            storePostLike(post.id, typeof serverLiked === 'boolean' ? serverLiked : nextLiked);
+            const response = await setPostLike(post.id, nextLiked);
+            setLiked(response.likedByMe);
+            setLikesCount(response.likesCount);
         } catch (error) {
             setLiked(previousLiked);
             setLikesCount(previousLikesCount);
-            console.error('Unable to toggle post like:', error);
+            setLikeError(error.message || 'Не вдалося зберегти лайк');
         } finally {
             setLikeLoading(false);
         }
@@ -345,6 +306,7 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
                         : <img className="post__image" src={post.mediaUrl} alt={`Фото в дописі ${post.displayName}`} loading="lazy" />
                 )}
                 {deleteError && <p className="post__delete-error" role="alert">{deleteError}</p>}
+                {likeError && <p className="post__delete-error" role="alert">{likeError}</p>}
                 <div className="post__actions" aria-label="Post actions">
                     <button
                         type="button"

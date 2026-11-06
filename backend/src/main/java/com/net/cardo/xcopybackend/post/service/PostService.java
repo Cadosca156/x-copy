@@ -10,7 +10,6 @@ import com.net.cardo.xcopybackend.post.repository.projection.LikedPostId;
 import com.net.cardo.xcopybackend.user.entity.User;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -97,21 +96,26 @@ public class PostService {
             post.setMediaUrl(media.url());
             post.setMediaType(media.contentType());
         }
-        Post savedPost = postRepository.save(post);
-        feedCacheService.invalidate();
+        Post savedPost;
+        try { savedPost = postRepository.save(post); }
+        catch (RuntimeException failure) {
+            mediaStorageService.delete(post.getMediaUrl());
+            throw failure;
+        }
+        feedCacheService.invalidate(userId.toString());
         return toResponses(List.of(savedPost), userId.toString()).get(0);
     }
 
-    @Cacheable(cacheNames = FeedCacheService.CACHE_NAME,
-            key = "'all:' + #a0 + ':' + #a1 + ':' + #a2", sync = true)
     public List<PostResponse> getPosts(String currentUserId, int page, int size) {
-        return toResponses(postRepository.findAllByOrderByCreatedAtDesc(page(page, size)), currentUserId);
+        var pageable = page(page, size);
+        return toResponses(feedCacheService.load("all",page,size,
+                () -> postRepository.findAllByOrderByCreatedAtDesc(pageable)), currentUserId);
     }
 
-    @Cacheable(cacheNames = FeedCacheService.CACHE_NAME,
-            key = "'user:' + #a0 + ':viewer:' + #a1 + ':' + #a2 + ':' + #a3", sync = true)
     public List<PostResponse> getUserPosts(String userId, String currentUserId, int page, int size) {
-        return toResponses(postRepository.findByUserIdOrderByCreatedAtDesc(userId, page(page, size)), currentUserId);
+        var pageable = page(page, size);
+        return toResponses(feedCacheService.load("author:"+userId,page,size,
+                () -> postRepository.findByUserIdOrderByCreatedAtDesc(userId,pageable)), currentUserId);
     }
 
     public List<PostResponse> getPostsByAuthors(List<String> authorIds, String viewerId, int page, int size) {
@@ -141,6 +145,6 @@ public class PostService {
         }
         postRepository.delete(post);
         mediaStorageService.delete(post.getMediaUrl());
-        feedCacheService.invalidate();
+        feedCacheService.invalidate(post.getUserId());
     }
 }

@@ -4,7 +4,6 @@ import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.UpdateOptions;
-import com.net.cardo.xcopybackend.post.service.FeedCacheService;
 import java.util.*;
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -26,11 +25,9 @@ public class MongoQueryIndexMigration implements InitializingBean {
     public static final String ARCHIVE = "likes_duplicate_archive_v1";
     private static final Logger log = LoggerFactory.getLogger(MongoQueryIndexMigration.class);
     private final MongoTemplate mongo;
-    private final FeedCacheService feedCache;
 
-    public MongoQueryIndexMigration(MongoTemplate mongo, FeedCacheService feedCache) {
+    public MongoQueryIndexMigration(MongoTemplate mongo) {
         this.mongo = mongo;
-        this.feedCache = feedCache;
     }
 
     @Override public void afterPropertiesSet() {
@@ -53,8 +50,7 @@ public class MongoQueryIndexMigration implements InitializingBean {
         long removed = archiveAndRemoveDuplicates(likes, indexName);
         modifyLikesIndex(new Document("name", indexName).append("unique", true), true);
         modifyLikesIndex(new Document("name", indexName).append("unique", true), false);
-        // Also invalidate after a resumed conversion where archival happened previously.
-        feedCache.invalidate();
+        // Like metadata is loaded live; post-page membership did not change.
         log.info("MongoDB query indexes ready; archived and removed {} duplicate likes", removed);
     }
 

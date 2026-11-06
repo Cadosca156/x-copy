@@ -18,7 +18,7 @@ class PostServiceBatchTest {
     private final CommentRepository comments = mock(CommentRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final PostService service = new PostService(posts,likes,comments,users,
-            mock(MediaStorageService.class),mock(FeedCacheService.class));
+            mock(MediaStorageService.class),FeedCacheTestSupport.passthrough());
 
     private Post post(String id, String author) {
         var post = new Post();post.setId(id);post.setUserId(author);return post;

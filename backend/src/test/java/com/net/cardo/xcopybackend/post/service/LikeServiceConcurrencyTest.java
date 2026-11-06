@@ -9,27 +9,26 @@ import static org.mockito.Mockito.*;
 class LikeServiceConcurrencyTest {
     private final LikeRepository likes = mock(LikeRepository.class);
     private final PostRepository posts = mock(PostRepository.class);
-    private final FeedCacheService cache = mock(FeedCacheService.class);
-    private final LikeService service = new LikeService(likes,posts,cache);
+    private final LikeService service = new LikeService(likes,posts);
     @Test void concurrentAddThatLostTheUniqueIndexRaceStillReturnsLiked() {
         when(posts.existsById("post")).thenReturn(true);
         when(likes.existsByPostIdAndUserId("post","viewer")).thenReturn(false,true);
         when(likes.save(any())).thenThrow(new DuplicateKeyException("pair already inserted"));
         assertTrue(service.toggleLike("post","viewer"));
-        verify(cache).invalidate();verify(likes,never()).deleteByPostIdAndUserId(anyString(),anyString());
+        verify(likes,never()).deleteByPostIdAndUserId(anyString(),anyString());
     }
     @Test void unrelatedDuplicateKeyFailureIsNotSwallowed() {
         when(posts.existsById("post")).thenReturn(true);
         when(likes.existsByPostIdAndUserId("post","viewer")).thenReturn(false);
         when(likes.save(any())).thenThrow(new DuplicateKeyException("different constraint"));
         assertThrows(DuplicateKeyException.class,()->service.toggleLike("post","viewer"));
-        verifyNoInteractions(cache);
+
     }
     @Test void existingLikeIsRemovedNormally() {
         when(posts.existsById("post")).thenReturn(true);
         when(likes.existsByPostIdAndUserId("post","viewer")).thenReturn(true);
         assertFalse(service.toggleLike("post","viewer"));
         verify(likes).deleteByPostIdAndUserId("post","viewer");verify(likes,never()).save(any());
-        verify(cache).invalidate();
+
     }
 }

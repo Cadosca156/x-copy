@@ -15,7 +15,6 @@ public class CommentService {
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
-    private final FeedCacheService feedCacheService;
 
     public Comment createComment(
             String postId,
@@ -39,7 +38,7 @@ public class CommentService {
         comment.setCreatedAt(LocalDateTime.now());
 
         Comment savedComment = commentRepository.save(comment);
-        feedCacheService.invalidate();
+
         return savedComment;
     }
 
@@ -74,7 +73,7 @@ public class CommentService {
         }
 
         commentRepository.delete(comment);
-        feedCacheService.invalidate();
+
     }
 
 }

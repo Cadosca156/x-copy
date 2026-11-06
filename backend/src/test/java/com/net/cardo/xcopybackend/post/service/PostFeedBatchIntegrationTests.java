@@ -107,4 +107,24 @@ class PostFeedBatchIntegrationTests {
         assertEquals(2,likes.findLikedPostIds(ids,"another-viewer").size());
         assertEquals(List.of(),likes.findLikedPostIds(ids,"unknown-viewer"));
     }
+
+    @Test void warmPageSharesPostsButRefreshesViewerCountsAndAuthorThenInvalidatesOnDelete() {
+        String authorId=author.getId().toString();
+        service.getUserPosts(authorId,viewer,0,20);
+        String anotherViewer=UUID.randomUUID().toString();
+        saveLike(page.get(2).getId(),anotherViewer);saveComment(page.get(2).getId());
+        author.setDisplayName("Updated author");users.save(author);
+        var statistics=entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();commands.counts.clear();
+        var result=service.getUserPosts(authorId,anotherViewer,0,20);
+        assertEquals(20,result.size());assertTrue(result.get(2).likedByMe());
+        assertEquals(1,result.get(2).likesCount());assertEquals(1,result.get(2).commentsCount());
+        assertEquals("Updated author",result.get(0).displayName());
+        assertEquals(0,commands.count("find"));assertEquals(3,commands.count("aggregate"));
+        assertEquals(1,statistics.getPrepareStatementCount());
+        assertFalse(service.getUserPosts(authorId,viewer,0,20).get(2).likedByMe());
+        service.deletePost(page.get(0).getId(),authorId);commands.counts.clear();
+        assertEquals(19,service.getUserPosts(authorId,viewer,0,20).size());
+        assertEquals(1,commands.count("find"));
+    }
 }

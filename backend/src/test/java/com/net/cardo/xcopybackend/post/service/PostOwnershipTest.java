@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 class PostOwnershipTest {
     private final PostRepository posts = mock(PostRepository.class);
     private final MediaStorageService media = mock(MediaStorageService.class);
-    private final FeedCacheService cache = mock(FeedCacheService.class);
+    private final FeedCacheService cache = FeedCacheTestSupport.passthrough();
     private final PostService service = new PostService(posts, mock(LikeRepository.class),
             mock(CommentRepository.class), mock(UserRepository.class), media, cache);
 
@@ -41,7 +41,7 @@ class PostOwnershipTest {
         service.deletePost("post", "owner");
         verify(posts).delete(post);
         verify(media).delete("/photo.png");
-        verify(cache).invalidate();
+        verify(cache).invalidate("owner");
     }
 
     @Test

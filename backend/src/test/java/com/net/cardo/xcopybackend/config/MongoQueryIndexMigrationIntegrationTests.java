@@ -5,7 +5,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.ValidationOptions;
-import com.net.cardo.xcopybackend.post.service.FeedCacheService;
 import java.util.*;
 import java.util.stream.IntStream;
 import org.bson.Document;
@@ -21,13 +20,11 @@ class MongoQueryIndexMigrationIntegrationTests {
     @Autowired MongoClient client;
     private MongoTemplate mongo;
     private MongoQueryIndexMigration migration;
-    private FeedCacheService cache;
     private String database;
     @BeforeEach void setup() {
         database = "xcopy_index_test_"+UUID.randomUUID().toString().replace("-","");
         mongo = new MongoTemplate(client,database);
-        cache = mock(FeedCacheService.class);
-        migration = new MongoQueryIndexMigration(mongo,cache);
+        migration = new MongoQueryIndexMigration(mongo);
     }
     @AfterEach void cleanup() {
         if(database!=null && database.startsWith("xcopy_index_test_")) mongo.getDb().drop();
@@ -71,7 +68,7 @@ class MongoQueryIndexMigrationIntegrationTests {
         source.insertOne(like("valid","post","third-user"));
         migration.migrate();
         assertEquals(2,mongo.getCollection(MongoQueryIndexMigration.ARCHIVE).countDocuments());
-        verify(cache,times(1)).invalidate();
+
     }
     @Test void preparedIndexRejectsNewDuplicatesAndInterruptedConversionCanResume() {
         var source = mongo.getCollection("likes");source.insertMany(List.of(like("a","post","user"),like("b","post","user")));
@@ -88,7 +85,7 @@ class MongoQueryIndexMigrationIntegrationTests {
         assertThrows(RuntimeException.class,()->migration.migrate());
         assertEquals(2,source.countDocuments());
         assertEquals(0,mongo.getCollection(MongoQueryIndexMigration.ARCHIVE).countDocuments());
-        verifyNoInteractions(cache);
+
         mongo.getDb().runCommand(new Document("collMod",MongoQueryIndexMigration.ARCHIVE).append("validationLevel","off"));
         migration.migrate();
         assertEquals(1,source.countDocuments());assertEquals(1,mongo.getCollection(MongoQueryIndexMigration.ARCHIVE).countDocuments());

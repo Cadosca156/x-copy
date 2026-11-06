@@ -18,8 +18,8 @@ public class LikeService {
 
     public boolean toggleLike(String postId, String userId) {
 
-        if (!postRepository.existsById(postId)) {
-            throw new RuntimeException("Post not found");
+        if (!postRepository.existsActiveById(postId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Допис не знайдено");
         }
 
         boolean alreadyLiked =
@@ -53,6 +53,10 @@ public class LikeService {
         }
 
 
+        if(!postRepository.existsActiveById(postId)) {
+            likeRepository.deleteByPostIdAndUserId(postId,userId);
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Допис видалено");
+        }
         return true;
     }
 }

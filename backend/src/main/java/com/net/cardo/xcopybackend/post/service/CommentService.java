@@ -22,8 +22,8 @@ public class CommentService {
             String content
     ) {
 
-        if (!postRepository.existsById(postId)) {
-            throw new RuntimeException("Post not found");
+        if (!postRepository.existsActiveById(postId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Допис не знайдено");
         }
 
         if (content == null || content.isBlank() || content.length()>5000) {
@@ -39,13 +39,18 @@ public class CommentService {
 
         Comment savedComment = commentRepository.save(comment);
 
+        if(!postRepository.existsActiveById(postId)) {
+            commentRepository.deleteById(savedComment.getId());
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Допис видалено");
+        }
+
         return savedComment;
     }
 
     public List<Comment> getComments(String postId, int page, int size) {
 
-        if (!postRepository.existsById(postId)) {
-            throw new RuntimeException("Post not found");
+        if (!postRepository.existsActiveById(postId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Допис не знайдено");
         }
 
         return commentRepository

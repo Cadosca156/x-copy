@@ -167,13 +167,12 @@ public class PostService {
         if (currentUserId == null || currentUserId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову");
         }
-        Post post = postRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Допис не знайдено"));
+        Post post = postRepository.findById(id).orElse(null);
+        if(post==null)return; // Repeating a completed DELETE has the same result.
         if (!currentUserId.equals(post.getUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Можна видаляти лише власні дописи");
         }
-        postRepository.delete(post);
-        mediaStorageService.delete(post.getMediaUrl());
+        postRepository.requestDeletion(id,currentUserId,java.time.Instant.now());
         feedCacheService.invalidate(post.getUserId());
     }
 }

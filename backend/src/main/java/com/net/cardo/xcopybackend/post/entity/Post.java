@@ -27,6 +27,8 @@ public class Post implements java.io.Serializable {
 
     private LocalDateTime createdAt;
 
+    private boolean deletionRequested;
+
     private int likes;
 
     private int reposts;

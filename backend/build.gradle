@@ -58,4 +58,5 @@ tasks.register('unitTest', Test) {
     exclude '**/PasswordRecoveryPrivacyTest.class'
     exclude '**/PostFeedBatchIntegrationTests.class'
     exclude '**/MongoQueryIndexMigrationIntegrationTests.class'
+    exclude '**/CapacityIntegrationTests.class'
 }

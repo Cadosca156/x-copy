@@ -11,6 +11,16 @@ import org.springframework.web.server.ResponseStatusException;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler({org.springframework.dao.TransientDataAccessException.class,
+            org.springframework.dao.DataAccessResourceFailureException.class,
+            org.springframework.transaction.CannotCreateTransactionException.class,
+            org.springframework.core.task.TaskRejectedException.class,org.springframework.mail.MailException.class})
+    public ResponseEntity<ErrorResponse> handleTemporaryCapacityFailure(RuntimeException failure) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After","2")
+                .header("Cache-Control","no-store")
+                .body(new ErrorResponse("Сервіс тимчасово зайнятий. Спробуйте пізніше.",503,System.currentTimeMillis()));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode())

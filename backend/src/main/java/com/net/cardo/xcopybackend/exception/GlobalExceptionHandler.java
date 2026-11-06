@@ -11,6 +11,17 @@ import org.springframework.web.server.ResponseStatusException;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler({java.io.FileNotFoundException.class,java.nio.file.NoSuchFileException.class})
+    public ResponseEntity<ErrorResponse> handleDisappearedFile(java.io.IOException failure,jakarta.servlet.http.HttpServletRequest request) {
+        String path=request.getServletPath();
+        if(path==null || path.isEmpty())path=request.getRequestURI().substring(request.getContextPath().length());
+        // Files can disappear between resource resolution and reading metadata/content.
+        boolean media=path.startsWith("/media/posts/");
+        return ResponseEntity.status(media?HttpStatus.NOT_FOUND:HttpStatus.INTERNAL_SERVER_ERROR)
+                .header("Cache-Control","no-store")
+                .body(new ErrorResponse(media?"Медіафайл не знайдено":"Не вдалося обробити запит",media?404:500,System.currentTimeMillis()));
+    }
+
     @ExceptionHandler({org.springframework.dao.TransientDataAccessException.class,
             org.springframework.dao.DataAccessResourceFailureException.class,
             org.springframework.transaction.CannotCreateTransactionException.class,

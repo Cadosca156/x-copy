@@ -19,7 +19,7 @@ class PostServiceTest {
     private final CommentRepository comments = mock(CommentRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final PostService service = new PostService(posts, likes, comments, users,
-            mock(MediaStorageService.class), mock(FeedCacheService.class));
+            mock(MediaStorageService.class), FeedCacheTestSupport.passthrough());
 
     private Post post(String id, String author) {
         var post = new Post();
@@ -98,5 +98,17 @@ class PostServiceTest {
     void followingNobodyReturnsEmptyFeedWithoutQueryingAllPosts() {
         assertEquals(List.of(), service.getPostsByAuthors(List.of(), "viewer"));
         verifyNoInteractions(posts);
+    }
+
+    @Test void failedPostSaveReleasesTheAlreadyStoredMedia() {
+        var media=mock(MediaStorageService.class);
+        var file=new org.springframework.mock.web.MockMultipartFile("file","a.png","image/png",new byte[]{1});
+        UUID owner=UUID.randomUUID();
+        when(media.store(file,owner)).thenReturn(new MediaStorageService.StoredMedia("/media/posts/file.png","image/png"));
+        var failure=new DataAccessResourceFailureException("Mongo unavailable");
+        when(posts.save(any())).thenThrow(failure);
+        var tested=new PostService(posts,likes,comments,users,media,FeedCacheTestSupport.passthrough());
+        assertSame(failure,assertThrows(DataAccessResourceFailureException.class,()->tested.createPost(owner,"content",file)));
+        verify(media).delete("/media/posts/file.png");
     }
 }

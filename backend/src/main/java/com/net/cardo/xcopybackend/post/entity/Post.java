@@ -11,7 +11,8 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @Document(collection = "posts")
-public class Post {
+public class Post implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
 
     @Id
     private String id;

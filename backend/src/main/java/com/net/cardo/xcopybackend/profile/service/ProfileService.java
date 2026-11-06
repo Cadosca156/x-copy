@@ -6,7 +6,6 @@ import com.net.cardo.xcopybackend.user.entity.User;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import com.net.cardo.xcopybackend.post.service.MediaStorageService;
-import com.net.cardo.xcopybackend.post.service.FeedCacheService;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
@@ -22,7 +21,6 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final MediaStorageService mediaStorageService;
-    private final FeedCacheService feedCacheService;
 
     public ProfileResponse updateAvatar(String email, MultipartFile file) {
         if (file == null || file.isEmpty() || file.getSize() > 5L * 1024 * 1024) {
@@ -45,7 +43,7 @@ public class ProfileService {
             throw exception;
         }
         mediaStorageService.delete(previousAvatar);
-        feedCacheService.invalidate();
+
         return new ProfileResponse(saved.getId(), saved.getUsername(), saved.getDisplayName(), saved.getAvatarUrl());
     }
 
@@ -109,7 +107,7 @@ public class ProfileService {
         user.setDisplayName(displayName);
 
         User savedUser = userRepository.save(user);
-        feedCacheService.invalidate();
+
 
         return new ProfileResponse(
                 savedUser.getId(),

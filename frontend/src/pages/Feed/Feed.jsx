@@ -241,7 +241,9 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
         } catch (error) {
             setLiked(previousLiked);
             setLikesCount(previousLikesCount);
-            setLikeError(error.message || 'Не вдалося зберегти лайк');
+            setLikeError(error.status === 401 ? error.message : error.status === 404
+                ? 'Цей допис уже недоступний. Оновіть стрічку.'
+                : 'Не вдалося підтвердити стан лайка. Спробуйте ще раз.');
         } finally {
             setLikeLoading(false);
         }

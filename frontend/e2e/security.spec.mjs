@@ -40,7 +40,7 @@ test('email signup, real mail code, profile, media post, comment, like and logou
     },{times:1});
     await post.getByRole('button',{name:'Like post',exact:true}).click();
     await expect(post.getByRole('button',{name:'Like post',exact:true})).toBeEnabled();
-    await expect(post.getByRole('alert')).toBeVisible();
+    await expect(post.getByRole('alert')).toContainText('Не вдалося підтвердити стан лайка');
     const committed = await (await context.request.get('/api/posts?pagination=cursor')).json();
     expect(committed.items.find(item=>item.id===created.id)).toMatchObject({likedByMe:true,likesCount:1});
     await post.getByRole('button',{name:'Like post',exact:true}).click();

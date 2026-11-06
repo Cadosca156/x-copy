@@ -14,7 +14,7 @@
 | --- | --- |
 | `post/service/PostService.java` | Авторизація власника, запит видалення, інвалідація сторінок |
 | `post/repository/PostDeletionRepository*.java` | Атомарний запис позначки та завдання з journaled acknowledgement |
-| `post/entity/Post.java` | Поле `deletionRequested`; внутрішні дані завдання залишаються в MongoDB |
+| `post/entity/Post.java` | Позначка й метадані завдання; звичайне читання/збереження документа їх не губить |
 | `post/repository/PostRepository.java`, `PostWindowRepositoryImpl.java` | Виключення позначених дописів із усіх стрічок |
 | `post/service/PostCleanupService.java` | Захоплення завдань, очищення, повторні спроби, пошук пізніх осиротілих записів |
 | `config/PostCleanupScheduler.java` | Запуск обмежених порцій у фоні |

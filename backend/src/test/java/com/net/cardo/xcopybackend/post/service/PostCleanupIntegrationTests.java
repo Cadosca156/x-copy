@@ -46,6 +46,9 @@ class PostCleanupIntegrationTests {
         mongo.getCollection("posts").updateOne(new Document("_id",first.get("_id")),new Document("$set",new Document("cleanupAttempts",3).append("cleanupNextAttemptAt",Date.from(now.plusSeconds(60)))));
         new PostDeletionRepositoryImpl(mongo).requestDeletion(post.getId(),owner,now.plusSeconds(5));
         assertEquals(3,raw(post).getInteger("cleanupAttempts"));assertEquals(Date.from(now.plusSeconds(60)),raw(post).getDate("cleanupNextAttemptAt"));
+        // Generic document hydration/save must not silently discard the durable job.
+        mongo.save(mongo.findById(post.getId(),Post.class));
+        assertEquals(3,raw(post).getInteger("cleanupAttempts"));assertEquals(Date.from(now.plusSeconds(60)),raw(post).getDate("cleanupNextAttemptAt"));
     }
     @Test void mediaFailureRetainsIntentAndANewWorkerFinishesAfterRestart() throws Exception {
         var post=post(true);child("likes",post.getId());child("comments",post.getId());mark(post);

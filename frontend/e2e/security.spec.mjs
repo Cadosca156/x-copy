@@ -114,7 +114,7 @@ test('real database pagination, CSRF rejection, spoofed upload and post ownershi
         const second = await other.newPage();await register(second);
         expect((await mutate(other.request,'/api/posts/'+ids[0],{method:'DELETE'})).status()).toBe(403);
         expect((await mutate(other.request,'/api/users/'+owner.id+'/follow',{method:'PUT'})).status()).toBe(204);
-        await second.reload();await second.getByRole('button',{name:'Following',exact:true}).click();
+        await second.reload();await second.getByRole('tab',{name:'Following',exact:true}).click();
         await expect(second.locator('article.post')).toHaveCount(20);
         await second.getByRole('button',{name:'Завантажити ще',exact:true}).click();
         await expect(second.locator('article.post')).toHaveCount(21);

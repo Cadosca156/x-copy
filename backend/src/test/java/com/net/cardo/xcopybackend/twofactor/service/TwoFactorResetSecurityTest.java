@@ -17,14 +17,13 @@ class TwoFactorResetSecurityTest {
     private final EphemeralAuthStore store = mock(EphemeralAuthStore.class);
     private final EmailService mail = mock(EmailService.class);
     private final UserRepository users = mock(UserRepository.class);
-    private final JwtService jwt = mock(JwtService.class);
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final TwoFactorCodeGenerator generator = mock(TwoFactorCodeGenerator.class);
-    private final TwoFactorService service = new TwoFactorService(mail,generator,users,jwt,store,encoder);
+    private final TwoFactorService service = new TwoFactorService(mail,generator,users,store,encoder);
     private final String challenge = "c".repeat(43);
     private final String key = "security:challenge:"+EphemeralAuthStore.digest(challenge);
     private User prepare(int version) {
-        var user = new User(); user.setId(UUID.randomUUID());user.setEmail("user@example.test");user.setTokenVersion(version);
+        var user = new User(); user.setId(UUID.randomUUID());user.setEmail("user@example.test");user.setCredentialVersion(version);
         when(users.findById(user.getId())).thenReturn(Optional.of(user));
         when(store.get(key)).thenReturn(user.getId()+"|0|"+encoder.encode("123456"));
         return user;
@@ -32,13 +31,13 @@ class TwoFactorResetSecurityTest {
     @Test void expiredChallengeCannotSendMailOrIssueASession() {
         assertThrows(ResponseStatusException.class,()->service.resend(challenge));
         assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"123456"));
-        verifyNoInteractions(mail,users,jwt);
+        verifyNoInteractions(mail,users);
     }
-    @Test void resetOrLogoutInvalidatesBothVerificationAndResend() {
+    @Test void passwordResetInvalidatesBothVerificationAndResend() {
         prepare(1);
         assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"123456"));
         assertThrows(ResponseStatusException.class,()->service.resend(challenge));
-        verifyNoInteractions(jwt,mail);
+        verifyNoInteractions(mail);
         verify(store,never()).consume(anyString(),anyString());
     }
     @Test void resendingACodeCannotResetAnExhaustedAttemptBudget() {
@@ -53,12 +52,12 @@ class TwoFactorResetSecurityTest {
         verify(mail).sendEmail(eq("user@example.test"),anyString(),contains("654321"));
         // The service replaces only a live value; it never creates a fresh challenge/TTL.
         verify(store,never()).put(anyString(),anyString(),any());
-        verify(store,never()).delete(anyString()); verifyNoInteractions(jwt);
+        verify(store,never()).delete(anyString()); verify(store,never()).consume(anyString(),anyString());
     }
     @Test void resendRacingWithConsumptionCannotResurrectAChallenge() {
         prepare(0);when(generator.generateTwoFactorCode()).thenReturn("654321");
         when(store.replace(eq(key),anyString(),anyString())).thenReturn(false);
         assertThrows(ResponseStatusException.class,()->service.resend(challenge));
-        verifyNoInteractions(mail,jwt);
+        verifyNoInteractions(mail);
     }
 }

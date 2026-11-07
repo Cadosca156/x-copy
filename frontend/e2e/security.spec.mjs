@@ -15,8 +15,9 @@ test.afterEach(async({page})=>expect(pageErrors.get(page)).toEqual([]));
 
 test('email signup, real mail code, profile, media post, comment, like and logout',async({page,context})=>{
     await register(page);
-    const cookies = await context.cookies();const session = cookies.find(cookie=>cookie.name==='XCOPY_SESSION');
+    const cookies = await context.cookies();const session = cookies.find(cookie=>cookie.name==='XCOPY_SESSION_ID');
     expect(session?.httpOnly).toBe(true);expect(session.sameSite).toBe('Lax');
+    expect(session.path).toBe('/');expect(session.value).toMatch(/^[0-9a-f-]{36}$/i);
     expect(await page.evaluate(()=>localStorage.getItem('token'))).toBeNull();
     expect(await page.evaluate(()=>document.cookie)).not.toContain('XCOPY_SESSION');
     const content = 'Real E2E post '+Date.now();
@@ -78,13 +79,17 @@ test('email signup, real mail code, profile, media post, comment, like and logou
     await expect.poll(async()=>(await context.request.get(created.mediaUrl)).status(),{timeout:15000}).toBe(404);
     await page.goto('/profile');
     await page.getByRole('button',{name:'Вийти з акаунту'}).click();await expect(page).toHaveURL(/\/login$/);
-    const replay = await context.request.get('/api/users/me',{headers:{Cookie:'XCOPY_SESSION='+session.value}});
+    const replay = await context.request.get('/api/users/me',{headers:{Cookie:'XCOPY_SESSION_ID='+session.value}});
     expect(replay.status()).toBe(401);
 });
 
-test('password reset uses real mail, revokes old session, rejects reuse and permits the new password',async({page,context})=>{
+test('password reset uses real mail, revokes both devices, rejects reuse and permits the new password',async({page,context,browser})=>{
     const user = await register(page);
-    const oldSession = (await context.cookies()).find(cookie=>cookie.name==='XCOPY_SESSION').value;
+    const oldSession = (await context.cookies()).find(cookie=>cookie.name==='XCOPY_SESSION_ID').value;
+    const other = await browser.newContext();
+    try {
+    const otherPage = await other.newPage();await login(otherPage,user.email);
+    await expect(otherPage).toHaveURL(/\/feed$/);
     await page.goto('/reset-password-email');
     await page.getByLabel('Email',{exact:true}).fill(user.email);
     const forgot = page.waitForResponse(response=>response.url().endsWith('/api/auth/password/forgot')&&response.request().method()==='POST');
@@ -101,8 +106,9 @@ test('password reset uses real mail, revokes old session, rejects reuse and perm
     await page.getByLabel('Повторіть пароль',{exact:true}).fill(newPassword);
     await page.getByRole('button',{name:'Змінити пароль',exact:true}).click();
     await expect(page.getByRole('button',{name:'Перейти до входу'})).toBeVisible();
-    const revoked = await context.request.get('/api/users/me',{headers:{Cookie:'XCOPY_SESSION='+oldSession}});
+    const revoked = await context.request.get('/api/users/me',{headers:{Cookie:'XCOPY_SESSION_ID='+oldSession}});
     expect(revoked.status()).toBe(401);
+    expect((await other.request.get('/api/users/me')).status()).toBe(401);
     const reuse = await mutate(context.request,'/api/auth/password/reset',{data:{token,newPassword:'Another-password-789'}});
     expect(reuse.status()).toBe(400);
     await page.goto('/login');
@@ -110,6 +116,25 @@ test('password reset uses real mail, revokes old session, rejects reuse and perm
     await page.getByRole('button',{name:'Продолжить',exact:true}).click();
     await expect(page.getByRole('alert')).toContainText(/парол|email|емейл/i);
     await login(page,user.email,newPassword);await expect(page).toHaveURL(/\/feed$/);
+    } finally {await other.close();}
+});
+
+test('reauthentication rotates the session and logout leaves another device signed in',async({page,context,browser})=>{
+    const user = await register(page);
+    const first = (await context.cookies()).find(cookie=>cookie.name==='XCOPY_SESSION_ID').value;
+    const other = await browser.newContext();
+    try {
+        const secondPage = await other.newPage();await login(secondPage,user.email);
+        await login(page,user.email);
+        const rotated = (await context.cookies()).find(cookie=>cookie.name==='XCOPY_SESSION_ID').value;
+        expect(rotated).not.toBe(first);
+        // A standalone request cannot replace the current browser's cookie when replaying the old ID.
+        const stale = await fetch('http://localhost:15173/api/users/me',{headers:{Cookie:'XCOPY_SESSION_ID='+first}});
+        expect(stale.status).toBe(401);
+        expect((await mutate(context.request,'/api/users/me/logout')).status()).toBe(204);
+        expect((await context.request.get('/api/users/me')).status()).toBe(401);
+        expect((await other.request.get('/api/users/me')).status()).toBe(200);
+    } finally {await other.close();}
 });
 
 test('real database pagination, CSRF rejection, spoofed upload and post ownership',async({page,context,browser})=>{

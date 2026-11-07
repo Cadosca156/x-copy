@@ -17,9 +17,12 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         var principal=(OAuth2User)authentication.getPrincipal();
         var session=request.getSession(false);
         String binding=session==null?null:(String)session.getAttribute("oauthBinding");
-        String code=sessions.issueOAuthCode(principal.getAttribute("email"),binding);
-        if(session!=null)session.invalidate();
-        SecurityContextHolder.clearContext();
+        String code;
+        try { code=sessions.issueOAuthCode(principal.getAttribute("email"),binding); }
+        finally {
+            if(session!=null)session.invalidate();
+            SecurityContextHolder.clearContext();
+        }
         response.setHeader("Cache-Control","no-store");
         response.setHeader("Referrer-Policy","no-referrer");
         response.sendRedirect(links.oauthSuccess(code));

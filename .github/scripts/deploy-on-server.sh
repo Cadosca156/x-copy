@@ -13,7 +13,6 @@ app_dir="$HOME/x-copy"
 # Also serialize deployments started outside GitHub Actions.
 exec 9> "$HOME/.cache/xcopy-deploy/deploy.lock"
 flock -w 60 9 || { echo 'Another deployment is running'; exit 1; }
-bash "$release_dir/configure-jwt-secret.sh" "$app_dir/.env"
 sudo -n docker info > /dev/null
 sudo -n docker compose version
 command -v curl > /dev/null
@@ -32,7 +31,7 @@ compose=(sudo -n env "XCOPY_IMAGE_TAG=$commit" docker compose
 sudo -n docker build --tag "xcopybackend:$commit" "$release_dir/backend"
 "${compose[@]}" up -d --no-build backend
 
-# The protected endpoint returns 401 when the application is ready without a JWT.
+# The protected endpoint returns 401 when the application is ready without an authenticated session.
 for attempt in {1..36}; do
   status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
     --connect-timeout 2 --max-time 5 http://127.0.0.1:8080/api/users/me) || status=000

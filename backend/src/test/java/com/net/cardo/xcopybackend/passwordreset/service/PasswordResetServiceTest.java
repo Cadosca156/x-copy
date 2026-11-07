@@ -30,7 +30,7 @@ class PasswordResetServiceTest {
     private final EmailService mail = mock(EmailService.class);
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final PasswordResetService service = new PasswordResetService(tokens, users, encoder, mail,
-            new FrontendLinks("https://app.example.test"), mock(com.net.cardo.xcopybackend.security.EphemeralAuthStore.class));
+            new FrontendLinks("https://app.example.test"), mock(com.net.cardo.xcopybackend.security.EphemeralAuthStore.class), mock(com.net.cardo.xcopybackend.security.BrowserSessionService.class));
     private User user;
     private PasswordResetToken token;
 
@@ -44,7 +44,7 @@ class PasswordResetServiceTest {
         token.setToken("valid-token");
         token.setUserId(user.getId());
         token.setExpiryDate(LocalDateTime.now().plusMinutes(15));
-        when(users.findById(user.getId())).thenReturn(Optional.of(user));
+        when(users.findForAuthentication(user.getId())).thenReturn(Optional.of(user));
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(tokens.findByToken(token.getToken())).thenReturn(Optional.of(token));
     }
@@ -60,7 +60,7 @@ class PasswordResetServiceTest {
         var failure = assertThrows(ResponseStatusException.class, () -> service.resetPassword(request));
         assertEquals(400, failure.getStatusCode().value());
         assertNotNull(failure.getReason());
-        verify(users, never()).save(any());
+        verify(users, never()).saveAndFlush(any());
         verify(tokens, never()).save(any());
         assertTrue(encoder.matches("old-password", user.getPassword()));
     }
@@ -122,7 +122,7 @@ class PasswordResetServiceTest {
 
     @Test
     void rejectsTokenForDeletedUser() {
-        when(users.findById(user.getId())).thenReturn(Optional.empty());
+        when(users.findForAuthentication(user.getId())).thenReturn(Optional.empty());
         assertRejected(request(token.getToken(), "new-password"));
     }
 

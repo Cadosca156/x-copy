@@ -20,6 +20,7 @@ import static org.mockito.Mockito.*;
 class PasswordRecoveryPrivacyTest {
     @Configuration @Import({SecurityMailConfig.class,PasswordResetService.class,PasswordResetController.class})
     static class Config {
+        @Bean BrowserSessionService sessions(){return mock(BrowserSessionService.class);}
         @Bean UserRepository users(){return mock(UserRepository.class);}
         @Bean PasswordResetTokenRepository tokens(){return mock(PasswordResetTokenRepository.class);}
         @Bean EmailService mail(){return mock(EmailService.class);}

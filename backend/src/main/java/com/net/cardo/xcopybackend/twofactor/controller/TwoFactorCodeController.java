@@ -23,13 +23,14 @@ public class TwoFactorCodeController {
     @PostMapping("/verify-2fa")
     public ResponseEntity<java.util.Map<String,Boolean>> verify(
             @RequestBody VerifyTwoFactorRequest request,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
             jakarta.servlet.http.HttpServletResponse response
     ) {
-    String token = twoFactorService.verifyCode(
+    var proof = twoFactorService.verifyCode(
             request.challengeId(),
             request.code()
     );
-        sessions.authenticate(response,token);
+        sessions.authenticate(proof,servletRequest,response);
         return ResponseEntity.ok(java.util.Map.of("authenticated",true));
     }
 

@@ -25,9 +25,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             + "and (u.password is null or trim(u.password) = '')")
     int setInitialPassword(@Param("email") String email, @Param("password") String encodedPassword);
 
-    @org.springframework.transaction.annotation.Transactional
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update User u set u.tokenVersion = u.tokenVersion + 1 where u.email = :email")
-    int invalidateSessions(@Param("email") String email);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findForAuthentication(@Param("id") UUID id);
 }
 

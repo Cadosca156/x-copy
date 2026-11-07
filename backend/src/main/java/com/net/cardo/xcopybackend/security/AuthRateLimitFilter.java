@@ -18,7 +18,9 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
                 if(start==null || !start.matches("[A-Za-z0-9_-]{43}")) { res.sendError(400,"Почніть вхід знову"); return; }
                 String binding=store.take("security:oauth-start:"+EphemeralAuthStore.digest(start));
                 if(binding==null) { res.sendError(400,"Почніть вхід знову"); return; }
-                req.getSession(true).setAttribute("oauthBinding",binding);
+                var session=req.getSession(true);
+                session.setMaxInactiveInterval(300);
+                session.setAttribute("oauthBinding",binding);
             }
             if("POST".equals(req.getMethod()) && req.getRequestURI().startsWith("/api/auth/")) {
                 String path=req.getRequestURI();

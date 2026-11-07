@@ -130,7 +130,8 @@ class RedisSessionIntegrationTests {
         });
         var unchanged = users.findById(user.getId()).orElseThrow();
         assertTrue(passwords.matches("old-password", unchanged.getPassword()));assertEquals(0, unchanged.getCredentialVersion());
-        assertFalse(new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status -> tokens.findByToken(request.getToken()).orElseThrow().isUsed()));
+        Boolean used = new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status -> tokens.findByToken(request.getToken()).orElseThrow().isUsed());
+        assertEquals(Boolean.FALSE, used);
         assertNull(restore(cookie));
     }
 

@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.post.repository.*;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import java.util.*;
@@ -30,13 +32,13 @@ class FeedResourceLimitTest {
         assertTrue(page.getAllValues().stream().allMatch(value->value.getPageSize()==20));
     }
     @Test void oversizedPageRequestsCannotReachTheDatabaseEvenForAnEmptyFollowingFeed() {
-        assertThrows(ResponseStatusException.class,()->service.getPosts("viewer",0,100_000));
-        assertThrows(ResponseStatusException.class,()->service.getUserPosts("author","viewer",0,100_000));
-        assertThrows(ResponseStatusException.class,()->service.getPostsByAuthors(List.of(),"viewer",0,100_000));
+        assertThrows(InvalidPaginationException.class,()->service.getPosts("viewer",0,100_000));
+        assertThrows(InvalidPaginationException.class,()->service.getUserPosts("author","viewer",0,100_000));
+        assertThrows(InvalidPaginationException.class,()->service.getPostsByAuthors(List.of(),"viewer",0,100_000));
         verifyNoInteractions(posts,users,likes,comments);
     }
     @Test void oversizedPostTextIsRejectedBeforeStorageAndDatabaseWrites() {
-        assertThrows(ResponseStatusException.class,()->service.createPost(UUID.randomUUID(),"x".repeat(5001),null));
+        assertThrows(InvalidPostException.class,()->service.createPost(UUID.randomUUID(),"x".repeat(5001),null));
         verifyNoInteractions(posts,users,media,cache);
     }
 }

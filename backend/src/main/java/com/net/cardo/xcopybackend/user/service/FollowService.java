@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.user.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.user.dto.response.SuggestedUserResponse;
 import com.net.cardo.xcopybackend.user.repository.UserFollowRepository;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
@@ -32,10 +34,10 @@ public class FollowService {
     @Transactional
     public void follow(UUID viewer, UUID target) {
         if (viewer.equals(target)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не можна підписатися на себе");
+            throw new InvalidFollowRequestException();
         }
         if (!users.existsById(target)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Користувача не знайдено");
+            throw new UserNotFoundException("Користувача не знайдено");
         }
         follows.addFollow(viewer + ":" + target, viewer, target);
     }

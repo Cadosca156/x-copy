@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.post.entity.Post;
 import com.net.cardo.xcopybackend.post.repository.*;
 import java.time.LocalDateTime;
@@ -36,7 +38,7 @@ class LikeIdempotencyIntegrationTests {
     }
     @Test void putIsRejectedForTombstonedPostButDeleteRemainsSafe() {
         service.setLiked(post.getId(),viewer,true);posts.requestDeletion(post.getId(),post.getUserId(),java.time.Instant.now());
-        assertEquals(404,assertThrows(org.springframework.web.server.ResponseStatusException.class,()->service.setLiked(post.getId(),viewer,true)).getStatusCode().value());
+        assertThrows(PostNotFoundException.class,()->service.setLiked(post.getId(),viewer,true));
         assertFalse(service.setLiked(post.getId(),viewer,false).likedByMe());assertEquals(0,likes.countByPostId(post.getId()));
     }
 }

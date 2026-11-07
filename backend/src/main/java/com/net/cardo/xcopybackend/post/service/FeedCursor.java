@@ -4,8 +4,7 @@ import java.io.*;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 
 /** Public position, not an authorization token. Query filters always come from the server. */
 public final class FeedCursor {
@@ -34,7 +33,7 @@ public final class FeedCursor {
             return position;
         } catch(IOException | IllegalArgumentException | DateTimeException malformed) {throw invalid();}
     }
-    private static ResponseStatusException invalid() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST,"Неправильний курсор стрічки. Оновіть сторінку.");
+    private static InvalidCursorException invalid() {
+        return new InvalidCursorException("Неправильний курсор стрічки. Оновіть сторінку.");
     }
 }

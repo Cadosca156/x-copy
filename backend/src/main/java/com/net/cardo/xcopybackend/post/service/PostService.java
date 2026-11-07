@@ -14,10 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -116,14 +115,14 @@ public class PostService {
     }
     public PostWindow getUserPostWindow(String author,String viewer,String cursor,int size) {
         try { author=UUID.fromString(author).toString(); }
-        catch(IllegalArgumentException invalid) {throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Неправильний ID автора");}
+        catch(IllegalArgumentException invalid) {throw new InvalidAuthorException("Неправильний ID автора");}
         return window("author:"+author,author,null,viewer,cursor,size,true);
     }
     public PostWindow getFollowingPostWindow(List<String> authors,String viewer,String cursor,int size) {
         return window("following:"+viewer,null,authors,viewer,cursor,size,false);
     }
     private PostWindow window(String scope,String author,List<String> authors,String viewer,String cursor,int size,boolean cacheStart) {
-        if(size<1 || size>50)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Неприпустимий розмір сторінки");
+        if(size<1 || size>50)throw new InvalidPaginationException("Неприпустимий розмір сторінки");
         var before=FeedCursor.decode(scope,cursor);
         if(authors!=null && authors.isEmpty())return new PostWindow(List.of(),null,false);
         java.util.function.Supplier<List<Post>> loader=()->postRepository.findWindow(author,authors,before,size+1);
@@ -153,7 +152,7 @@ public class PostService {
 
     public static Pageable page(int page, int size) {
         if (page < 0 || page > 1000 || size < 1 || size > 50) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неприпустимий розмір сторінки");
+            throw new InvalidPaginationException("Неприпустимий розмір сторінки");
         }
         return PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
     }
@@ -163,12 +162,12 @@ public class PostService {
 
     public void deletePost(String id, String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову");
+            throw new AuthenticationRequiredException();
         }
         Post post = postRepository.findById(id).orElse(null);
         if(post==null)return; // Repeating a completed DELETE has the same result.
         if (!currentUserId.equals(post.getUserId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Можна видаляти лише власні дописи");
+            throw new PostAccessDeniedException("Можна видаляти лише власні дописи");
         }
         postRepository.requestDeletion(id,currentUserId,java.time.Instant.now());
         feedCacheService.invalidate(post.getUserId());

@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.post.entity.Post;
 import com.net.cardo.xcopybackend.post.repository.*;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
@@ -29,8 +31,7 @@ class PostOwnershipTest {
     @Test
     void anotherUserCannotDeletePostOrItsMedia() {
         var post = ownedPost("owner");
-        var error = assertThrows(ResponseStatusException.class, () -> service.deletePost("post", "attacker"));
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+        assertThrows(PostAccessDeniedException.class, () -> service.deletePost("post", "attacker"));
         verify(posts, never()).delete(post);
         verifyNoInteractions(media, cache);
     }
@@ -55,8 +56,7 @@ class PostOwnershipTest {
     @Test
     void unauthenticatedCallerCannotDelete() {
         for (String userId : new String[] {null, "", " "}) {
-            var error = assertThrows(ResponseStatusException.class, () -> service.deletePost("post", userId));
-            assertEquals(HttpStatus.UNAUTHORIZED, error.getStatusCode());
+            assertThrows(AuthenticationRequiredException.class, () -> service.deletePost("post", userId));
         }
         verifyNoInteractions(posts, media, cache);
     }
@@ -64,8 +64,7 @@ class PostOwnershipTest {
     @Test
     void postWithoutAuthorCannotBeDeletedByAnotherUser() {
         ownedPost(null);
-        var error = assertThrows(ResponseStatusException.class, () -> service.deletePost("post", "attacker"));
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+        assertThrows(PostAccessDeniedException.class, () -> service.deletePost("post", "attacker"));
         verify(posts, never()).delete(any());
         verifyNoInteractions(media, cache);
     }

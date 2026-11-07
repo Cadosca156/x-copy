@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.user.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.user.entity.User;
 import com.net.cardo.xcopybackend.user.repository.*;
 import java.util.*;
@@ -28,10 +30,8 @@ class FollowServiceTest {
 
     @Test
     void cannotFollowSelfOrMissingUser() {
-        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
-                () -> service.follow(viewer, viewer)).getStatusCode());
-        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
-                () -> service.follow(viewer, target)).getStatusCode());
+        assertThrows(InvalidFollowRequestException.class, () -> service.follow(viewer, viewer));
+        assertThrows(UserNotFoundException.class, () -> service.follow(viewer, target));
         verifyNoInteractions(follows);
     }
 

@@ -3,7 +3,7 @@ package com.net.cardo.xcopybackend.auth.service;
 
 import com.net.cardo.xcopybackend.auth.dto.request.LoginRequest;
 import com.net.cardo.xcopybackend.auth.dto.response.LoginResponse;
-import com.net.cardo.xcopybackend.exception.exceptions.InvalidUsernameException;
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 import com.net.cardo.xcopybackend.twofactor.service.TwoFactorService;
 import com.net.cardo.xcopybackend.user.entity.User;
 import com.net.cardo.xcopybackend.exception.exceptions.InvalidPasswordException;
@@ -25,7 +25,7 @@ public class UserService {
     public LoginResponse loginOrRegister(LoginRequest request) {
         if(request==null || request.email()==null || request.email().length()>254 || !request.email().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") ||
            request.password()==null || request.password().isBlank() || request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Перевірте email та пароль");
+            throw new InvalidLoginRequestException();
         }
         securityStore.limit("password:"+request.email().toLowerCase(java.util.Locale.ROOT),10,java.time.Duration.ofMinutes(15));
 
@@ -49,7 +49,7 @@ public class UserService {
 
         } else {
 
-            if(request.password().length()<8) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Пароль має містити щонайменше 8 символів");
+            if(request.password().length()<8) throw new InvalidPasswordException("Пароль має містити щонайменше 8 символів");
             user = new User();
 
             user.setEmail(request.email());
@@ -63,14 +63,14 @@ public class UserService {
         return new LoginResponse(user.getId(), twoFactorService.beginLogin(user));
     }
     public void updateUsername(User user,String username) {
-        String normalized = username.trim().toLowerCase();
+        String normalized = username == null ? "" : username.trim().toLowerCase(java.util.Locale.ROOT);
 
         if (!normalized.matches("^[a-z0-9_]{3,30}$")) {
-            throw new IllegalArgumentException("Invalid username");
+            throw new InvalidUsernameException("Ім’я користувача має містити 3–30 латинських літер, цифр або підкреслень");
         }
 
         if(userRepository.existsByUsernameIgnoreCase(normalized)) {
-            throw new IllegalArgumentException("Username already taken");
+            throw new UsernameAlreadyExistsException();
         }
         user.setUsername(normalized);
         userRepository.save(user);

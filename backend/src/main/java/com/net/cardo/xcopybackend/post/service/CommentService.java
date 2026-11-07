@@ -1,7 +1,6 @@
 package com.net.cardo.xcopybackend.post.service;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 
 import com.net.cardo.xcopybackend.post.entity.Comment;
 import com.net.cardo.xcopybackend.post.repository.CommentRepository;
@@ -26,11 +25,11 @@ public class CommentService {
     ) {
 
         if (!postRepository.existsActiveById(postId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Допис не знайдено");
+            throw new PostNotFoundException("Допис не знайдено");
         }
 
         if (content == null || content.isBlank() || content.length()>5000) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Коментар має містити від 1 до 5000 символів");
+            throw new InvalidCommentException("Коментар має містити від 1 до 5000 символів");
         }
 
         Comment comment = new Comment();
@@ -44,7 +43,7 @@ public class CommentService {
 
         if(!postRepository.existsActiveById(postId)) {
             commentRepository.deleteById(savedComment.getId());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Допис видалено");
+            throw new PostNotFoundException("Допис видалено");
         }
 
         return savedComment;
@@ -53,7 +52,7 @@ public class CommentService {
     public List<Comment> getComments(String postId, int page, int size) {
 
         if (!postRepository.existsActiveById(postId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Допис не знайдено");
+            throw new PostNotFoundException("Допис не знайдено");
         }
 
         return commentRepository
@@ -67,13 +66,13 @@ public class CommentService {
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND,"Коментар не знайдено")
+                        new CommentNotFoundException("Коментар не знайдено")
                 );
         if (!comment.getPostId().equals(postId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Коментар не знайдено");
+            throw new CommentNotFoundException("Коментар не знайдено");
         }
         if (!comment.getUserId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Можна видаляти лише власні коментарі");
+            throw new CommentAccessDeniedException("Можна видаляти лише власні коментарі");
         }
 
         commentRepository.delete(comment);

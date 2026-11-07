@@ -1,4 +1,6 @@
 package com.net.cardo.xcopybackend.post.service;
+
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 import java.nio.file.*;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -35,8 +37,8 @@ class MediaStorageTest {
     }
     @Test void rejectsInvalidPaginationInsteadOfLoadingAnUnboundedFeed() {
         assertEquals(20,PostService.page(0,20).getPageSize());
-        assertThrows(ResponseStatusException.class,()->PostService.page(0,100000));
-        assertThrows(ResponseStatusException.class,()->PostService.page(-1,20));
-        assertThrows(ResponseStatusException.class,()->PostService.page(1001,20));
+        assertThrows(InvalidPaginationException.class,()->PostService.page(0,100000));
+        assertThrows(InvalidPaginationException.class,()->PostService.page(-1,20));
+        assertThrows(InvalidPaginationException.class,()->PostService.page(1001,20));
     }
 }

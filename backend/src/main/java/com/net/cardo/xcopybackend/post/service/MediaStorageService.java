@@ -115,17 +115,23 @@ public class MediaStorageService {
         return new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,"Вміст файлу має відповідати формату JPEG, PNG, GIF, WebP, MP4, WebM або MOV");
     }
     public void delete(String url) {
+        try { deleteOrThrow(url); } catch(IOException ignored) { /* Best-effort compensation for existing callers. */ }
+    }
+    public void deleteOrThrow(String url) throws IOException {
         if(url==null || !url.startsWith("/media/posts/"))return;
         Path file=uploadDirectory.resolve(url.substring("/media/posts/".length())).normalize();
-        if(!file.startsWith(uploadDirectory) || file.equals(uploadDirectory))return;
+        if(!file.startsWith(uploadDirectory) || file.equals(uploadDirectory))throw new IOException("Invalid media path");
         Path relative=uploadDirectory.relativize(file);
-        for(Path part:relative)if(part.toString().startsWith("."))return;
+        for(Path part:relative)if(part.toString().startsWith("."))throw new IOException("Private media path");
         // Current uploads have exactly UUID/filename; legacy flat files remain deletable.
-        if(relative.getNameCount()>2)return;
-        try {
-            quotas.locked(() -> {
-                if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file.getParent()))return null;
-                long size=Files.size(file);
+        if(relative.getNameCount()>2)throw new IOException("Invalid media nesting");
+        quotas.locked(() -> {
+                if(Files.isSymbolicLink(file.getParent()))throw new IOException("Symbolic media directory");
+                java.nio.file.attribute.BasicFileAttributes attributes;
+                try { attributes=Files.readAttributes(file,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS); }
+                catch(NoSuchFileException missing) {return null;}
+                if(!attributes.isRegularFile())throw new IOException("Media is not a regular file");
+                long size=attributes.size();
                 String owner=relative.getNameCount()==2?relative.getName(0).toString():"legacy";
                 var account=quotas.owner(owner);var total=quotas.total();
                 quotas.begin();
@@ -134,9 +140,6 @@ public class MediaStorageService {
                         relative.getNameCount()==2?account.add(-size,-1):account);
                 return null;
             });
-        } catch(IOException ignored) {
-            // The file is retained on failure; dirty state forces reconciliation next time.
-        }
     }
     public record StoredMedia(String url,String contentType) {}
 }

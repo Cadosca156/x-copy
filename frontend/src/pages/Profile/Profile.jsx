@@ -19,16 +19,17 @@ export default function Profile() {
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [posts, setPosts] = useState([]);
-    const [nextPage, setNextPage] = useState(1);
+    const [nextCursor, setNextCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     async function loadMore() {
-        if (loadingMore || !profile) return;
+        if (loadingMore || !profile || !nextCursor) return;
         setLoadingMore(true); setPostsError('');
         try {
-            const items = await getUserPosts(profile.id, nextPage);
+            const response = await getUserPosts(profile.id, nextCursor);
+            const items = response.items;
             setPosts(previous => [...previous, ...items.filter(item => !previous.some(post => post.id === item.id))]);
-            setNextPage(value => value + 1); setHasMore(items.length === 20);
+            setNextCursor(response.nextCursor); setHasMore(response.hasMore);
         } catch (failure) { setPostsError(failure.message); }
         finally { setLoadingMore(false); }
     }
@@ -55,7 +56,7 @@ export default function Profile() {
                 setIsLoading(false);
                 try {
                     const response = await getUserPosts(user.id);
-                    if (current) { const items = Array.isArray(response) ? response : response?.content ?? []; setPosts(items); setHasMore(items.length === 20); setNextPage(1); }
+                    if (current) { const items = response.items; setPosts(items); setHasMore(response.hasMore); setNextCursor(response.nextCursor); }
                 } catch (failure) {
                     if (current) setPostsError(failure.message || 'Не вдалося завантажити дописи');
                 }

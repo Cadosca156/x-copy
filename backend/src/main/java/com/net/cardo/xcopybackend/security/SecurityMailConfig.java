@@ -7,7 +7,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 public class SecurityMailConfig implements AsyncConfigurer {
     @Bean("securityMailExecutor") public Executor securityMailExecutor() {
         var executor=new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);executor.setMaxPoolSize(2);executor.setQueueCapacity(100);
+        executor.setCorePoolSize(2);executor.setMaxPoolSize(2);executor.setQueueCapacity(16);
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
         executor.setThreadNamePrefix("security-mail-");return executor;
     }
     @Override public org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {

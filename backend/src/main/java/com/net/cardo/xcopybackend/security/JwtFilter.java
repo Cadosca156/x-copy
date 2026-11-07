@@ -49,6 +49,12 @@ public class JwtFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+        } catch (org.springframework.dao.DataAccessException | org.springframework.transaction.CannotCreateTransactionException unavailable) {
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setHeader("Retry-After","2");
+            response.setHeader("Cache-Control","no-store");
+            return;
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException invalidSession) {
             SecurityContextHolder.clearContext();
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

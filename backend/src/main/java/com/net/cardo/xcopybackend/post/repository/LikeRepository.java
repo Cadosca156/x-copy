@@ -7,7 +7,7 @@ import com.net.cardo.xcopybackend.post.repository.projection.PostCount;
 import com.net.cardo.xcopybackend.post.repository.projection.LikedPostId;
 import java.util.List;
 
-public interface LikeRepository extends MongoRepository<Like, String> {
+public interface LikeRepository extends MongoRepository<Like, String>, LikeWriteRepository {
 
     boolean existsByPostIdAndUserId(
             String postId,

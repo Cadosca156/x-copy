@@ -4,6 +4,7 @@ import com.net.cardo.xcopybackend.user.service.FollowService;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
 import com.net.cardo.xcopybackend.post.service.PostService;
 import com.net.cardo.xcopybackend.post.dto.response.PostResponse;
+import com.net.cardo.xcopybackend.post.dto.response.PostWindow;
 import com.net.cardo.xcopybackend.user.dto.response.SuggestedUserResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -48,6 +49,14 @@ public class FollowController {
         UUID viewer = viewerId(authentication);
         return posts.getPostsByAuthors(follows.followingIds(viewer).stream().map(UUID::toString).toList(),
                 viewer.toString(), page, size);
+    }
+
+    @GetMapping(value="/me/following/posts",params="pagination=cursor")
+    public PostWindow followingWindow(Authentication authentication,@RequestParam(required=false) String cursor,
+            @RequestParam(defaultValue="20") int size,@RequestParam(required=false) Integer page) {
+        com.net.cardo.xcopybackend.post.controller.PostController.rejectOffset(page);
+        UUID viewer=viewerId(authentication);
+        return posts.getFollowingPostWindow(follows.followingIds(viewer).stream().map(UUID::toString).toList(),viewer.toString(),cursor,size);
     }
 
     @PutMapping("/{userId}/follow")

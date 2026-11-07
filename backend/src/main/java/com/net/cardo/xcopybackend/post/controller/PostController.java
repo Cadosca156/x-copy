@@ -1,7 +1,10 @@
 package com.net.cardo.xcopybackend.post.controller;
 
+import com.net.cardo.xcopybackend.post.dto.response.LikeState;
+
 
 import com.net.cardo.xcopybackend.post.dto.response.PostResponse;
+import com.net.cardo.xcopybackend.post.dto.response.PostWindow;
 import com.net.cardo.xcopybackend.post.service.LikeService;
 import com.net.cardo.xcopybackend.post.service.PostService;
 import com.net.cardo.xcopybackend.user.entity.User;
@@ -28,6 +31,32 @@ public class PostController {
     private final PostService postService;
     private final UserRepository userRepository;
     private final LikeService likeService;
+
+    private User authenticatedUser(Authentication authentication) {
+        if(authentication==null || !authentication.isAuthenticated()
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Увійдіть в акаунт знову");
+        String email=authentication.getPrincipal() instanceof OidcUser oidc?oidc.getEmail():authentication.getName();
+        return userRepository.findByEmail(email).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Увійдіть в акаунт знову"));
+    }
+
+    @GetMapping(params="pagination=cursor")
+    public PostWindow postWindow(@RequestParam(required=false) String cursor,@RequestParam(defaultValue="20") int size,
+            @RequestParam(required=false) Integer page,Authentication authentication) {
+        rejectOffset(page);
+        return postService.getPostWindow(authenticatedUser(authentication).getId().toString(),cursor,size);
+    }
+
+    @GetMapping(value="/user/{userId}",params="pagination=cursor")
+    public PostWindow userPostWindow(@PathVariable String userId,@RequestParam(required=false) String cursor,
+            @RequestParam(defaultValue="20") int size,@RequestParam(required=false) Integer page,Authentication authentication) {
+        rejectOffset(page);
+        return postService.getUserPostWindow(userId,authenticatedUser(authentication).getId().toString(),cursor,size);
+    }
+
+    public static void rejectOffset(Integer page) {
+        if(page!=null)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Не поєднуйте номер сторінки з курсором");
+    }
 
 
 
@@ -139,6 +168,16 @@ public class PostController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{postId}/like")
+    public LikeState like(@PathVariable String postId,Authentication authentication) {
+        return likeService.setLiked(postId,authenticatedUser(authentication).getId().toString(),true);
+    }
+    @DeleteMapping("/{postId}/like")
+    public LikeState unlike(@PathVariable String postId,Authentication authentication) {
+        return likeService.setLiked(postId,authenticatedUser(authentication).getId().toString(),false);
+    }
+
+    @Deprecated
     @PostMapping("/{postId}/like")
     public ResponseEntity<Boolean> toggleLike(
             @PathVariable String postId,

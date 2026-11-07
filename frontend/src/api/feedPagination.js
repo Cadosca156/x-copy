@@ -1,3 +1,5 @@
+import { readPost } from './postContract.js';
+
 export function feedPagePath(path, cursor = null) {
     const params = new URLSearchParams({ pagination: 'cursor', size: '20' });
     if (cursor !== null) params.set('cursor', cursor);
@@ -11,5 +13,6 @@ export function readFeedPage(response) {
         || (!response.hasMore && response.nextCursor !== null)) {
         throw new Error('Не вдалося завантажити стрічку. Спробуйте пізніше.');
     }
+    response.items.forEach(readPost);
     return response;
 }

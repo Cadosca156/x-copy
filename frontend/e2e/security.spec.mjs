@@ -115,6 +115,10 @@ test('password reset uses real mail, revokes old session, rejects reuse and perm
 test('real database pagination, CSRF rejection, spoofed upload and post ownership',async({page,context,browser})=>{
     await register(page);
     expect((await context.request.post('/api/posts',{multipart:{content:'No CSRF'}})).status()).toBe(403);
+    // Validate the raw payload on the server, even when a client bypasses the composer.
+    for (const content of ['x'.repeat(281), 'x' + ' '.repeat(280), '\u00a0\uFEFF']) {
+        expect((await mutate(context.request,'/api/posts',{multipart:{content}})).status()).toBe(400);
+    }
     const spoofed = await mutate(context.request,'/api/posts',{multipart:{
         content:'Spoofed upload',file:{name:'photo.png',mimeType:'image/png',buffer:Buffer.from('<script>spoof</script>')}
     }});expect(spoofed.status()).toBe(415);

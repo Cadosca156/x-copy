@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.post.entity.Post;
 import com.net.cardo.xcopybackend.post.repository.*;
 import com.net.cardo.xcopybackend.user.repository.UserRepository;
@@ -34,9 +36,9 @@ class PostWindowServiceTest {
         verify(posts,never()).findById(anyString());verifyNoInteractions(cache);
     }
     @Test void invalidCursorAndSizeAreRejectedBeforeLoadingPagesOrMetadata() {
-        assertThrows(ResponseStatusException.class,()->service.getPostWindow("v","bad",20));
-        assertThrows(ResponseStatusException.class,()->service.getPostWindow("v",null,51));
-        assertThrows(ResponseStatusException.class,()->service.getPostWindow("v",null,0));
+        assertThrows(InvalidCursorException.class,()->service.getPostWindow("v","bad",20));
+        assertThrows(InvalidPaginationException.class,()->service.getPostWindow("v",null,51));
+        assertThrows(InvalidPaginationException.class,()->service.getPostWindow("v",null,0));
         verifyNoInteractions(posts,likes,comments,users,cache);
     }
     @Test void authorAndFollowingScopesCannotBeSwappedAndEmptyFollowingDoesNoReads() {
@@ -46,7 +48,7 @@ class PostWindowServiceTest {
         verify(posts).findWindow(author,null,null,21);clearInvocations(posts,cache);
         assertEquals(List.of(),service.getFollowingPostWindow(List.of(),"viewer",null,20).items());
         var wrong=FeedCursor.encode("all",new FeedCursor.Position(LocalDateTime.now(),"id"));
-        assertThrows(ResponseStatusException.class,()->service.getFollowingPostWindow(List.of(),"viewer",wrong,20));
+        assertThrows(InvalidCursorException.class,()->service.getFollowingPostWindow(List.of(),"viewer",wrong,20));
         verifyNoInteractions(posts,cache);
     }
 }

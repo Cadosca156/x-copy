@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import com.net.cardo.xcopybackend.post.dto.response.CommentResponse;
+import com.net.cardo.xcopybackend.exception.exceptions.AuthenticationRequiredException;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -33,18 +34,7 @@ public class CommentController {
             Authentication authentication
     ) {
 
-        String email;
-
-        if (authentication.getPrincipal() instanceof OidcUser oidcUser) {
-            email = oidcUser.getEmail();
-        } else {
-            email = authentication.getName();
-        }
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+        User user = authenticatedUser(authentication);
 
         Comment comment = commentService.createComment(
                 postId,
@@ -75,18 +65,7 @@ public class CommentController {
             Authentication authentication
     ) {
 
-        String email;
-
-        if (authentication.getPrincipal() instanceof OidcUser oidcUser) {
-            email = oidcUser.getEmail();
-        } else {
-            email = authentication.getName();
-        }
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+        User user = authenticatedUser(authentication);
 
         commentService.deleteComment(
                 commentId,
@@ -95,6 +74,15 @@ public class CommentController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    private User authenticatedUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new AuthenticationRequiredException();
+        }
+        String email = authentication.getPrincipal() instanceof OidcUser oidc ? oidc.getEmail() : authentication.getName();
+        return userRepository.findByEmail(email).orElseThrow(AuthenticationRequiredException::new);
     }
 
     private static UUID parseUserId(String value) {

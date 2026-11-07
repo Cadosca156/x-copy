@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.profile.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.user.dto.request.UpdateProfileRequest;
 import com.net.cardo.xcopybackend.user.dto.response.ProfileResponse;
 import com.net.cardo.xcopybackend.user.entity.User;
@@ -85,11 +87,11 @@ public class ProfileService {
         if (request.username() != null && !request.username().equals(username)) {
             username = request.username().trim().toLowerCase(java.util.Locale.ROOT);
             if (!username.matches("^[a-z0-9_]{3,30}$")) {
-                throw new ResponseStatusException(BAD_REQUEST, "Invalid username");
+                throw new InvalidUsernameException("Некоректне ім’я користувача");
             }
             if (!username.equalsIgnoreCase(user.getUsername())
                     && userRepository.existsByUsernameIgnoreCase(username)) {
-                throw new ResponseStatusException(CONFLICT, "Username already taken");
+                throw new UsernameAlreadyExistsException();
             }
         }
 

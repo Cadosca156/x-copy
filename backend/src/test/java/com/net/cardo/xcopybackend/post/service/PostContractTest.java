@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.exception.GlobalExceptionHandler;
 import com.net.cardo.xcopybackend.post.controller.PostController;
 import com.net.cardo.xcopybackend.post.dto.response.*;
@@ -24,9 +26,9 @@ class PostContractTest {
         assertEquals(280,PostRules.MAX_CONTENT_LENGTH);
         assertEquals("hello",PostRules.content(" \u00a0hello\uFEFF ",null));
         assertEquals(280,PostRules.content("😀".repeat(140),null).length());
-        assertThrows(ResponseStatusException.class,()->PostRules.content("😀".repeat(141),null));
-        assertThrows(ResponseStatusException.class,()->PostRules.content(" \u00a0\uFEFF ",null));
-        assertThrows(ResponseStatusException.class,()->PostRules.content("",new MockMultipartFile("file",new byte[0])));
+        assertThrows(InvalidPostException.class,()->PostRules.content("😀".repeat(141),null));
+        assertThrows(InvalidPostException.class,()->PostRules.content(" \u00a0\uFEFF ",null));
+        assertThrows(InvalidPostException.class,()->PostRules.content("",new MockMultipartFile("file",new byte[0])));
         assertEquals("",PostRules.content(null,new MockMultipartFile("file",new byte[]{1})));
     }
     @Test void serviceRejectsEmptyAndOversizedContentBeforeAnyStorageOrRepositoryWork() {
@@ -34,7 +36,7 @@ class PostContractTest {
         var users=mock(UserRepository.class);var media=mock(MediaStorageService.class);var cache=mock(FeedCacheService.class);
         var service=new PostService(posts,likes,comments,users,media,cache);
         for(String text:new String[]{null,""," ","x".repeat(281)})
-            assertEquals(400,assertThrows(ResponseStatusException.class,()->service.createPost(UUID.randomUUID(),text,null)).getStatusCode().value());
+            assertThrows(InvalidPostException.class,()->service.createPost(UUID.randomUUID(),text,null));
         verifyNoInteractions(posts,likes,comments,users,media,cache);
     }
     @Test void createAndFeedSerializeTheSameSharedPostResponseFixture() throws Exception {

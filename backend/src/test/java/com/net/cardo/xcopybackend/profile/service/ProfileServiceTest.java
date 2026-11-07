@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.profile.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.post.service.MediaStorageService;
 import com.net.cardo.xcopybackend.user.dto.request.UpdateProfileRequest;
 import com.net.cardo.xcopybackend.user.entity.User;
@@ -50,8 +52,7 @@ class ProfileServiceTest {
 
     @Test
     void rejectsNewInvalidUsername() {
-        var error = assertThrows(ResponseStatusException.class, () -> service.updateProfile("user@example.test", new UpdateProfileRequest("New invalid name", "Name")));
-        assertEquals(400, error.getStatusCode().value());
+        assertThrows(InvalidUsernameException.class, () -> service.updateProfile("user@example.test", new UpdateProfileRequest("New invalid name", "Name")));
         verify(repository, never()).save(any());
     }
 
@@ -65,8 +66,7 @@ class ProfileServiceTest {
     @Test
     void rejectsTakenUsername() {
         when(repository.existsByUsernameIgnoreCase("taken")).thenReturn(true);
-        var error = assertThrows(ResponseStatusException.class, () -> service.updateProfile("user@example.test", new UpdateProfileRequest("taken", "Name")));
-        assertEquals(409, error.getStatusCode().value());
+        assertThrows(UsernameAlreadyExistsException.class, () -> service.updateProfile("user@example.test", new UpdateProfileRequest("taken", "Name")));
         verify(repository, never()).save(any());
     }
 

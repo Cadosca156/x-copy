@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.post.entity.Comment;
 import com.net.cardo.xcopybackend.post.repository.*;
 import java.util.Optional;
@@ -31,20 +33,20 @@ class ExplicitLikeTest {
     }
     @Test void deletionBetweenChecksRemovesTheLateLikeAndReturns404() {
         when(posts.existsActiveById("p")).thenReturn(true,false);
-        assertEquals(404,assertThrows(ResponseStatusException.class,()->service.setLiked("p","u",true)).getStatusCode().value());
+        assertThrows(PostNotFoundException.class,()->service.setLiked("p","u",true));
         verify(likes).ensureLiked(eq("p"),eq("u"),any());verify(likes).deleteByPostIdAndUserId("p","u");
     }
     @Test void lateCommentIsCompensatedAfterItsParentIsDeleted() {
         var comments=mock(CommentRepository.class);var saved=new Comment();saved.setId("comment");
         when(posts.existsActiveById("p")).thenReturn(true,false);when(comments.save(any())).thenReturn(saved);
-        assertEquals(404,assertThrows(ResponseStatusException.class,()->new CommentService(comments,posts).createComment("p","u","text")).getStatusCode().value());
+        assertThrows(PostNotFoundException.class,()->new CommentService(comments,posts).createComment("p","u","text"));
         verify(comments).deleteById("comment");
     }
     @Test void commentDeletionDistinguishesMissingAndForbidden() {
         var comments=mock(CommentRepository.class);var service=new CommentService(comments,posts);
-        assertEquals(404,assertThrows(ResponseStatusException.class,()->service.deleteComment("missing","u","p")).getStatusCode().value());
+        assertThrows(CommentNotFoundException.class,()->service.deleteComment("missing","u","p"));
         var other=new Comment();other.setUserId("other");other.setPostId("p");when(comments.findById("c")).thenReturn(Optional.of(other));
-        assertEquals(403,assertThrows(ResponseStatusException.class,()->service.deleteComment("c","u","p")).getStatusCode().value());
-        assertEquals(404,assertThrows(ResponseStatusException.class,()->service.deleteComment("c","u","wrong-post")).getStatusCode().value());
+        assertThrows(CommentAccessDeniedException.class,()->service.deleteComment("c","u","p"));
+        assertThrows(CommentNotFoundException.class,()->service.deleteComment("c","u","wrong-post"));
     }
 }

@@ -1,4 +1,6 @@
 package com.net.cardo.xcopybackend.auth.service;
+
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 import com.net.cardo.xcopybackend.auth.dto.request.LoginRequest;
 import com.net.cardo.xcopybackend.security.EphemeralAuthStore;
 import com.net.cardo.xcopybackend.twofactor.service.TwoFactorService;
@@ -26,7 +28,7 @@ class UserServiceSecurityTest {
     @Test void malformedOrOversizedCredentialsDoNotReachDatabaseOrPasswordHasher() {
         for(var request:new LoginRequest[]{new LoginRequest(null,"password"),new LoginRequest("invalid","password"),
             new LoginRequest("target@example.test",null),new LoginRequest("target@example.test","я".repeat(37))}) {
-            assertEquals(400,assertThrows(ResponseStatusException.class,()->service.loginOrRegister(request)).getStatusCode().value());
+            assertThrows(InvalidLoginRequestException.class,()->service.loginOrRegister(request));
         }
         verifyNoInteractions(users,encoder,codes,store);
     }

@@ -1,8 +1,7 @@
 package com.net.cardo.xcopybackend.post.service;
 
 import com.net.cardo.xcopybackend.post.dto.response.LikeState;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import com.net.cardo.xcopybackend.exception.exceptions.*;
 
 import com.net.cardo.xcopybackend.post.entity.Like;
 import com.net.cardo.xcopybackend.post.repository.LikeRepository;
@@ -38,8 +37,8 @@ public class LikeService {
         }
         return new LikeState(desired,likeRepository.countByPostId(postId));
     }
-    private ResponseStatusException missing() {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND,"Допис не знайдено");
+    private PostNotFoundException missing() {
+        return new PostNotFoundException("Допис не знайдено");
     }
 
     /** Compatibility only; callers needing safe retries must use setLiked. */
@@ -47,7 +46,7 @@ public class LikeService {
     public boolean toggleLike(String postId, String userId) {
 
         if (!postRepository.existsActiveById(postId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Допис не знайдено");
+            throw new PostNotFoundException("Допис не знайдено");
         }
 
         boolean alreadyLiked =
@@ -83,7 +82,7 @@ public class LikeService {
 
         if(!postRepository.existsActiveById(postId)) {
             likeRepository.deleteByPostIdAndUserId(postId,userId);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Допис видалено");
+            throw new PostNotFoundException("Допис видалено");
         }
         return true;
     }

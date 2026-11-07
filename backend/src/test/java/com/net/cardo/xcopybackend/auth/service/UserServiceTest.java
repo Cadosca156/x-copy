@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.auth.service;
 
+import com.net.cardo.xcopybackend.exception.exceptions.*;
+
 import com.net.cardo.xcopybackend.auth.dto.request.LoginRequest;
 import com.net.cardo.xcopybackend.exception.GlobalExceptionHandler;
 import com.net.cardo.xcopybackend.exception.exceptions.InvalidPasswordException;
@@ -68,7 +70,7 @@ class UserServiceTest {
 
     @Test
     void includesExplanationInBadRequestResponse() {
-        var response = new GlobalExceptionHandler().handlePasswordValid(new InvalidPasswordException());
+        var response = new GlobalExceptionHandler().handleInvalidPassword(new InvalidPasswordException());
         assertEquals(400, response.getStatusCode().value());
         var body = assertInstanceOf(com.net.cardo.xcopybackend.auth.dto.response.ErrorResponse.class,
                 response.getBody());

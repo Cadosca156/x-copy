@@ -22,7 +22,7 @@ import org.springframework.session.*;
 import org.springframework.session.web.http.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.datasource.hikari.data-source-properties.options=-c statement_timeout=5000 -c lock_timeout=4000")
 class RedisSessionIntegrationTests {
     @Autowired BrowserSessionService sessions;
     @Autowired FindByIndexNameSessionRepository<? extends Session> repository;
@@ -32,6 +32,7 @@ class RedisSessionIntegrationTests {
     @Autowired PasswordResetTokenRepository tokens;
     @Autowired PasswordResetService resets;
     @Autowired PasswordEncoder passwords;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     private final List<UUID> accounts = new ArrayList<>();
     private final List<PasswordResetToken> links = new ArrayList<>();
 
@@ -118,6 +119,44 @@ class RedisSessionIntegrationTests {
     @Test void anExpiredRedisSessionDoesNotRestoreAuthentication() throws Exception {
         var user = account();var cookie = login(user);
         expire(cookie.getValue());assertNull(restore(cookie));
+    }
+
+
+    @Test void sqlRollbackMayRevokeSessionsButDoesNotCommitTheNewPassword() throws Exception {
+        var user = account();var cookie = login(user);var request = resetRequest(user);
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+            resets.resetPassword(request);
+            status.setRollbackOnly();
+        });
+        var unchanged = users.findById(user.getId()).orElseThrow();
+        assertTrue(passwords.matches("old-password", unchanged.getPassword()));assertEquals(0, unchanged.getCredentialVersion());
+        assertFalse(new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status -> tokens.findByToken(request.getToken()).orElseThrow().isUsed()));
+        assertNull(restore(cookie));
+    }
+
+    @Test void loginWaitingForAConcurrentResetCannotIssueAStaleSession() throws Exception {
+        var user = account();var proof = LoginProof.from(user);var request = resetRequest(user);
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var started = new java.util.concurrent.CountDownLatch(1);
+        var pending = new java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Future<?>>();
+        try {
+            new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+                users.findForAuthentication(user.getId()).orElseThrow(); // Real PostgreSQL row lock.
+                pending.set(executor.submit(() -> {
+                    started.countDown();
+                    try { sessions.authenticate(proof, new MockHttpServletRequest(), new MockHttpServletResponse()); }
+                    finally { SecurityContextHolder.clearContext(); }
+                }));
+                try { assertTrue(started.await(2, java.util.concurrent.TimeUnit.SECONDS)); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt();throw new AssertionError(interrupted); }
+                assertThrows(java.util.concurrent.TimeoutException.class, () -> pending.get().get(100, java.util.concurrent.TimeUnit.MILLISECONDS));
+                resets.resetPassword(request);
+            });
+            var failure = assertThrows(java.util.concurrent.ExecutionException.class,
+                    () -> pending.get().get(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertInstanceOf(AuthenticationRequiredException.class, failure.getCause());
+            assertTrue(repository.findByPrincipalName(user.getId().toString()).isEmpty());
+        } finally { executor.shutdownNow(); }
     }
 
     private <S extends Session> void expireSession(FindByIndexNameSessionRepository<S> repo, String id) {

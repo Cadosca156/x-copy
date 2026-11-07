@@ -43,7 +43,7 @@ public class AccountPasswordService {
     }
 
     private User findUser(String email) {
-        return users.findByEmail(email)
+        return com.net.cardo.xcopybackend.security.SessionAccounts.find(users, email)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
     }
 

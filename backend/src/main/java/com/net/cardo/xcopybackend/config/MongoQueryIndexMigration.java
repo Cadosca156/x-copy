@@ -30,6 +30,10 @@ public class MongoQueryIndexMigration implements InitializingBean {
         this.mongo = mongo;
     }
 
+    private com.mongodb.client.MongoDatabase adminDatabase() {
+        return mongo.getDb().withTimeout(120,java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     @Override public void afterPropertiesSet() {
         migrate();
     }
@@ -42,7 +46,7 @@ public class MongoQueryIndexMigration implements InitializingBean {
         Document index = ensureIndex("likes", new Document("postId", 1).append("userId", 1), LIKES_INDEX);
         if (Boolean.TRUE.equals(index.getBoolean("unique"))) return;
 
-        MongoCollection<Document> likes = mongo.getCollection("likes");
+        MongoCollection<Document> likes = adminDatabase().getCollection("likes");
         rejectInvalidLikeIds(likes);
         String indexName = index.getString("name");
         // Stop new duplicate pairs before removing any old duplicates.
@@ -55,8 +59,9 @@ public class MongoQueryIndexMigration implements InitializingBean {
     }
 
     private Document ensureIndex(String collectionName, Document keys, String desiredName) {
-        if (!mongo.collectionExists(collectionName)) mongo.createCollection(collectionName);
-        var collection = mongo.getCollection(collectionName);
+        if (!adminDatabase().listCollectionNames().into(new ArrayList<>()).contains(collectionName))
+            adminDatabase().createCollection(collectionName);
+        var collection = adminDatabase().getCollection(collectionName);
         List<Document> indexes = collection.listIndexes().into(new ArrayList<>());
         for (Document index : indexes) {
             if (desiredName.equals(index.getString("name")) && !sameKeyOrder(keys, index.get("key", Document.class))) {
@@ -94,11 +99,11 @@ public class MongoQueryIndexMigration implements InitializingBean {
     private void modifyLikesIndex(Document options, boolean dryRun) {
         Document command = new Document("collMod", "likes").append("index", options);
         if (dryRun) command.append("dryRun", true);
-        mongo.getDb().runCommand(command);
+        adminDatabase().runCommand(command);
     }
 
     private long archiveAndRemoveDuplicates(MongoCollection<Document> likes, String indexName) {
-        var archive = mongo.getCollection(ARCHIVE).withWriteConcern(WriteConcern.JOURNALED);
+        var archive = adminDatabase().getCollection(ARCHIVE).withWriteConcern(WriteConcern.JOURNALED);
         String previousPost = null, previousUser = null;
         long removed = 0;
         // Adjacent equal pairs come from the existing index; no giant $push array or full Java list.

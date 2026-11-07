@@ -127,4 +127,26 @@ class PostFeedBatchIntegrationTests {
         assertEquals(19,service.getUserPosts(authorId,viewer,0,20).size());
         assertEquals(1,commands.count("find"));
     }
+
+    @Test void cursorWalkHandlesEqualDatesNewInsertAndDeletedAnchorWithoutGaps() {
+        var tied=LocalDateTime.now().withNano(0);
+        page.forEach(post->post.setCreatedAt(tied));posts.saveAll(page);
+        String authorId=author.getId().toString();
+        var first=service.getUserPostWindow(authorId,viewer,null,7);
+        assertEquals(7,first.items().size());assertTrue(first.hasMore());
+        var seen=new ArrayList<>(first.items().stream().map(p->p.id()).toList());
+        var newer=new Post();newer.setUserId(authorId);newer.setCreatedAt(tied.plusSeconds(1));newer=posts.save(newer);
+        try {
+            posts.deleteById(seen.get(seen.size()-1)); // Cursor must not depend on loading its anchor again.
+            String cursor=first.nextCursor();int windows=1;
+            while(cursor!=null) {
+                assertTrue(windows++<10,"Cursor walk did not terminate");
+                var next=service.getUserPostWindow(authorId,viewer,cursor,7);
+                seen.addAll(next.items().stream().map(p->p.id()).toList());cursor=next.nextCursor();
+            }
+            var expected=page.stream().map(Post::getId).sorted(Comparator.reverseOrder()).toList();
+            assertEquals(expected,seen);assertEquals(20,new HashSet<>(seen).size());
+            assertFalse(seen.contains(newer.getId()));
+        } finally {posts.deleteById(newer.getId());}
+    }
 }

@@ -31,6 +31,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         } catch(ResponseStatusException e) {
             res.setHeader("Retry-After","300"); res.sendError(e.getStatusCode().value(),"Забагато спроб"); return;
         } catch(DataAccessException unavailable) {
+            res.setHeader("Retry-After","2");
             res.sendError(503,"Вхід тимчасово недоступний"); return;
         }
         chain.doFilter(req,res);

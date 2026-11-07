@@ -1,4 +1,4 @@
-These E2E tests run the real frontend, executable Spring backend, PostgreSQL, MongoDB, Redis and SMTP delivery to Mailpit. They do not mock application API responses. Accounts, posts and files are disposable; no production endpoint or credentials are used.
+These E2E tests run the real frontend, executable Spring backend, PostgreSQL, MongoDB, Redis and SMTP delivery to Mailpit. They do not substitute fake application API payloads. One fault-injection scenario forwards a real like PUT to the backend, waits for its response and deliberately drops that response before it reaches the browser, then verifies a safe retry. Accounts, posts and files are disposable; no production endpoint or credentials are used.
 
 Google's external service is replaced by the local test OIDC provider, including discovery, authorization redirects, one-use authorization codes, signed ID tokens, JWKS and userinfo. This exercises the application's OAuth/OIDC integration and password setup, but does not verify Google's live login/consent screens or its production client configuration.
 
@@ -21,9 +21,9 @@ The runner starts and stops the frontend, backend and OIDC provider. It uses ded
 
 Five browser scenarios cover:
 
-- Email registration, delivered verification code, profile setup, file upload/display, posts, likes/comments, deletion, logout and rejection of the former session.
+- Email registration, delivered verification code, profile setup, file upload/display, a lost like response followed by an idempotent retry, repeated explicit like/unlike, comments, durable post deletion and eventual media cleanup, logout and rejection of the former session.
 - Recovery mail, identical known/unknown-email responses, reset-link reuse rejection, old-session/password rejection and successful new-password login.
-- Database pagination, rejection of missing CSRF tokens and forged image content, and rejection of deleting another account's post.
+- Cursor pagination in the feed, profile and following feed; continuation across a new insert and deleted anchor; rejection of malformed/cross-scope cursors, missing CSRF tokens, forged image content and deleting another account's post.
 - OIDC login with password/profile setup, replay rejection for the handoff code, subsequent email login and subsequent OIDC login.
 - Rejection of public-user-ID login bypass and exhaustion of the code-attempt budget.
 

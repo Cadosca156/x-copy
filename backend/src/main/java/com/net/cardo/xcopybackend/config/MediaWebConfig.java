@@ -20,7 +20,7 @@ public class MediaWebConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/media/posts/**").addResourceLocations(location)
-                .resourceChain(true).addResolver(new PublicMediaResolver());
+                .resourceChain(false).addResolver(new PublicMediaResolver());
     }
 
     static class PublicMediaResolver extends PathResourceResolver {

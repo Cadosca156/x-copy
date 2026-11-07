@@ -1,4 +1,5 @@
-import { apiFetch } from "./api";
+import { apiFetch } from "./api.js";
+import { feedPagePath, readFeedPage } from './feedPagination.js';
 
 export function createPost(content, file) {
     const body = new FormData();
@@ -11,12 +12,12 @@ export function createPost(content, file) {
     });
 }
 
-export function getPosts(page = 0) {
-    return apiFetch(`/posts?page=${page}&size=20`);
+export function getPosts(cursor = null) {
+    return apiFetch(feedPagePath('/posts', cursor)).then(readFeedPage);
 }
 
-export function getUserPosts(userId, page = 0) {
-    return apiFetch(`/posts/user/${userId}?page=${page}&size=20`);
+export function getUserPosts(userId, cursor = null) {
+    return apiFetch(feedPagePath(`/posts/user/${encodeURIComponent(userId)}`, cursor)).then(readFeedPage);
 }
 
 export function deletePost(id) {
@@ -24,12 +25,15 @@ export function deletePost(id) {
         method: "DELETE"
     });
 }
-export function toggleLike(postId) {
-
-    return apiFetch(`/posts/${postId}/like`, {
-        method: "POST"
+export async function setLike(postId, liked) {
+    if (typeof liked !== 'boolean') throw new Error('Вкажіть бажаний стан лайка');
+    const state = await apiFetch(`/posts/${encodeURIComponent(postId)}/like`, {
+        method: liked ? 'PUT' : 'DELETE'
     });
-
+    if (typeof state?.likedByMe !== 'boolean' || !Number.isSafeInteger(state.likesCount) || state.likesCount < 0) {
+        throw new Error('Не вдалося підтвердити стан лайка. Оновіть стрічку.');
+    }
+    return state;
 }
 export function postComment(id, content) {
     return apiFetch(`/posts/${id}/comments`, {

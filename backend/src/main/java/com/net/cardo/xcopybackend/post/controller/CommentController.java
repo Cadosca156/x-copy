@@ -82,7 +82,7 @@ public class CommentController {
             throw new AuthenticationRequiredException();
         }
         String email = authentication.getPrincipal() instanceof OidcUser oidc ? oidc.getEmail() : authentication.getName();
-        return userRepository.findByEmail(email).orElseThrow(AuthenticationRequiredException::new);
+        return com.net.cardo.xcopybackend.security.SessionAccounts.find(userRepository, email).orElseThrow(AuthenticationRequiredException::new);
     }
 
     private static UUID parseUserId(String value) {

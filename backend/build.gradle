@@ -28,6 +28,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-session-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
 	compileOnly 'org.projectlombok:lombok'
     runtimeOnly("org.postgresql:postgresql")
@@ -37,9 +38,6 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
-    implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 }
 
 tasks.named('test') {
@@ -58,7 +56,6 @@ tasks.register('unitTest', Test) {
     useJUnitPlatform()
     exclude '**/XcopyApplicationTests.class'
     exclude '**/RedisAuthStoreTests.class'
-    exclude '**/BrowserSecurityFlowTest.class'
     exclude '**/PasswordRecoveryPrivacyTest.class'
     exclude '**/PostFeedBatchIntegrationTests.class'
     exclude '**/MongoQueryIndexMigrationIntegrationTests.class'
@@ -66,4 +63,5 @@ tasks.register('unitTest', Test) {
     exclude '**/PostWindowQueryIntegrationTests.class'
     exclude '**/PostCleanupIntegrationTests.class'
     exclude '**/LikeIdempotencyIntegrationTests.class'
+    exclude '**/RedisSessionIntegrationTests.class'
 }

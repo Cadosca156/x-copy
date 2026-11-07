@@ -22,10 +22,11 @@ class PasswordResetSecurityUnitTest {
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordResetTokenRepository tokens = mock(PasswordResetTokenRepository.class);
     private final EmailService mail = mock(EmailService.class);
+    private final com.net.cardo.xcopybackend.security.BrowserSessionService sessions = mock(com.net.cardo.xcopybackend.security.BrowserSessionService.class);
     private final EphemeralAuthStore store = mock(EphemeralAuthStore.class);
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final PasswordResetService service = new PasswordResetService(tokens,users,encoder,mail,
-        new FrontendLinks("https://app.example.test"),store);
+        new FrontendLinks("https://app.example.test"),store,sessions);
     private User user() {
         var user = new User(); user.setId(UUID.randomUUID());user.setEmail("known@example.test");return user;
     }
@@ -45,13 +46,13 @@ class PasswordResetSecurityUnitTest {
         token.setUserId(user.getId());token.setToken("reset-link");
         token.setExpiryDate(LocalDateTime.now().plusMinutes(15));
         when(tokens.findByToken("reset-link")).thenReturn(Optional.of(token));
-        when(users.findById(user.getId())).thenReturn(Optional.of(user));
+        when(users.findForAuthentication(user.getId())).thenReturn(Optional.of(user));
         var request = new ResetPasswordRequest();request.setToken("reset-link");request.setNewPassword("new-password");
         service.resetPassword(request);
         assertTrue(encoder.matches("new-password",user.getPassword()));assertTrue(token.isUsed());
-        verify(users).invalidateSessions(user.getEmail());verify(tokens).invalidateForUser(user.getId());
+        verify(sessions).revokeAll(user.getId());assertEquals(1,user.getCredentialVersion());verify(tokens).invalidateForUser(user.getId());
         assertThrows(ResponseStatusException.class,()->service.resetPassword(request));
-        verify(users,times(1)).invalidateSessions(user.getEmail());
+        verify(sessions,times(1)).revokeAll(user.getId());
     }
     @Test void recoveryMailLimitAppliesBeforeLookupAndDelivery() {
         doThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS)).when(store)

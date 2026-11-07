@@ -30,7 +30,7 @@ public class FollowController {
         }
         String email = authentication.getPrincipal() instanceof OidcUser oidc
                 ? oidc.getEmail() : authentication.getName();
-        return users.findByEmail(email).orElseThrow(() ->
+        return com.net.cardo.xcopybackend.security.SessionAccounts.find(users, email).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Увійдіть в акаунт знову")).getId();
     }
 

@@ -55,7 +55,6 @@ services:
     volumes:
       - media_data:/app/uploads
     environment:
-      APP_JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET in the server .env before deployment}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${PSQL_NAME}
       SPRING_DATASOURCE_USERNAME: ${PSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${PSQL_PASSWORD}
@@ -69,7 +68,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       APP_FRONTEND_URL: ${FRONTEND_URL:-https://main.d2s4oyee9a0d3l.amplifyapp.com}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
-      SERVER_SERVLET_SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      APP_AUTH_SECURE_COOKIES: ${SESSION_COOKIE_SECURE:-true}
       SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://18-197-16-216.nip.io/login/oauth2/code/google}
 
 

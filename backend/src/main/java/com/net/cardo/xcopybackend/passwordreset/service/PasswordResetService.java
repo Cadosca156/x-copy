@@ -31,6 +31,7 @@ public class PasswordResetService {
     private final EmailService emailService;
     private final FrontendLinks frontendLinks;
     private final com.net.cardo.xcopybackend.security.EphemeralAuthStore securityStore;
+    private final com.net.cardo.xcopybackend.security.BrowserSessionService sessions;
 
 
      @org.springframework.scheduling.annotation.Async("securityMailExecutor")
@@ -97,7 +98,7 @@ public class PasswordResetService {
             throw invalidResetLink();
         }
         Optional<User> optionalUser =
-                userRepository.findById(resetToken.getUserId());
+                userRepository.findForAuthentication(resetToken.getUserId());
 
         if (optionalUser.isEmpty()) {
             throw invalidResetLink();
@@ -108,8 +109,9 @@ public class PasswordResetService {
         String hashedPassword = passwordEncoder.encode(password);
         user.setPassword(hashedPassword);
 
-        userRepository.save(user);
-        userRepository.invalidateSessions(user.getEmail());
+        user.setCredentialVersion(Math.incrementExact(user.getCredentialVersion()));
+        userRepository.saveAndFlush(user);
+        sessions.revokeAll(user.getId());
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
         passwordResetTokenRepository.invalidateForUser(user.getId());

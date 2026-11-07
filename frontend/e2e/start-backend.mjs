@@ -13,7 +13,7 @@ const child = spawn(java,['-Duser.timezone=UTC','-jar',path.join(backend,'build/
         PSQL_USER:'xcopy_e2e',PSQL_PASSWORD:'e2e-only-password',
         MONGODB_URI:'mongodb://localhost:27018/xcopy_e2e_'+randomBytes(6).toString('hex'),REDIS_HOST:'localhost',REDIS_PORT:'16379',
         SPRING_JPA_HIBERNATE_DDL_AUTO:'create-drop',SPRING_JPA_SHOW_SQL:'false',
-        APP_JWT_SECRET:randomBytes(64).toString('base64'),APP_AUTH_SECURE_COOKIES:'false',
+        APP_AUTH_SECURE_COOKIES:'false',
         APP_FRONTEND_URL:'http://localhost:15173',APP_CORS_ALLOWED_ORIGINS:'http://localhost:15173',
         APP_MEDIA_UPLOAD_DIR:path.resolve('test-results/uploads'),
         MAIL_USERNAME:'e2e@example.test',MAIL_PASSWORD:'e2e-only-password',

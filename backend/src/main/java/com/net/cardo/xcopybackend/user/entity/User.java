@@ -31,6 +31,6 @@ public class User {
 
     private String password;
 
-    @Column(nullable = false, columnDefinition = "integer default 0")
-    private int tokenVersion;
+    @Column(name = "token_version", nullable = false, columnDefinition = "integer default 0")
+    private int credentialVersion;
 }

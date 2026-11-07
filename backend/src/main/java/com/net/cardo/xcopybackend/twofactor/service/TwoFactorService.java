@@ -15,7 +15,6 @@ public class TwoFactorService {
     private final EmailService mail;
     private final TwoFactorCodeGenerator generator;
     private final UserRepository users;
-    private final JwtService jwt;
     private final EphemeralAuthStore store;
     private final PasswordEncoder encoder;
     private String key(String challenge) {
@@ -26,7 +25,7 @@ public class TwoFactorService {
     public String beginLogin(User user) {
         store.limit("mail-login:"+user.getId(),5,Duration.ofMinutes(15));
         String challenge=EphemeralAuthStore.random(), code=generator.generateTwoFactorCode();
-        store.put(key(challenge),user.getId()+"|"+user.getTokenVersion()+"|"+encoder.encode(code),Duration.ofMinutes(5));
+        store.put(key(challenge),user.getId()+"|"+user.getCredentialVersion()+"|"+encoder.encode(code),Duration.ofMinutes(5));
         mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
         return challenge;
     }
@@ -35,14 +34,14 @@ public class TwoFactorService {
         if(value==null) throw invalid();
         String[] fields=value.split("\\|");
         User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
-        if(user.getTokenVersion()!=Integer.parseInt(fields[1])) throw invalid();
+        if(user.getCredentialVersion()!=Integer.parseInt(fields[1])) throw invalid();
         store.limit("resend:"+k,1,Duration.ofSeconds(60));
         store.limit("mail-login:"+user.getId(),5,Duration.ofMinutes(15));
         String code=generator.generateTwoFactorCode();
         if(!store.replace(k,value,fields[0]+"|"+fields[1]+"|"+encoder.encode(code))) throw invalid();
         mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
     }
-    public String verifyCode(String challenge,String code) {
+    public LoginProof verifyCode(String challenge,String code) {
         String k=key(challenge), value=store.get(k);
         if(value==null) throw invalid();
         // Failed attempts survive resends and are shared by all app instances.
@@ -51,7 +50,7 @@ public class TwoFactorService {
         String[] fields=value.split("\\|");
         if(!encoder.matches(code,fields[2])) throw invalid();
         User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
-        if(user.getTokenVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
-        return jwt.generateToken(user);
+        if(user.getCredentialVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
+        return LoginProof.from(user);
     }
 }

@@ -66,7 +66,7 @@ class ProductionLinksTest {
         user.setId(UUID.randomUUID());
         user.setEmail("user@example.test");
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        var service = new PasswordResetService(tokens, users, mock(org.springframework.security.crypto.password.PasswordEncoder.class), mail, new FrontendLinks(FRONTEND), mock(EphemeralAuthStore.class));
+        var service = new PasswordResetService(tokens, users, mock(org.springframework.security.crypto.password.PasswordEncoder.class), mail, new FrontendLinks(FRONTEND), mock(EphemeralAuthStore.class), mock(BrowserSessionService.class));
         service.forgotPassword(new ForgotPasswordRequest(user.getEmail()));
         var message = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(mail).sendEmail(eq(user.getEmail()), eq("Reset password"), message.capture());

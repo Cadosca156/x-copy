@@ -32,7 +32,7 @@ public class ProfileService {
         if (contentType == null || !Set.of("image/jpeg", "image/png", "image/webp", "image/gif").contains(contentType)) {
             throw new ResponseStatusException(UNSUPPORTED_MEDIA_TYPE, "Choose JPEG, PNG, WebP or GIF");
         }
-        User user = userRepository.findByEmail(email)
+        User user = com.net.cardo.xcopybackend.security.SessionAccounts.find(userRepository, email)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
         String previousAvatar = user.getAvatarUrl();
         MediaStorageService.StoredMedia media = mediaStorageService.store(file, user.getId());
@@ -51,7 +51,7 @@ public class ProfileService {
 
     public ProfileResponse getMyProfile(String email) {
 
-        User user = userRepository.findByEmail(email)
+        User user = com.net.cardo.xcopybackend.security.SessionAccounts.find(userRepository, email)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -72,7 +72,7 @@ public class ProfileService {
             String email,
             UpdateProfileRequest request
     ) {
-        User user = userRepository.findByEmail(email)
+        User user = com.net.cardo.xcopybackend.security.SessionAccounts.find(userRepository, email)
                 .orElseThrow(() ->
                         new ResponseStatusException(NOT_FOUND, "User not found")
                 );

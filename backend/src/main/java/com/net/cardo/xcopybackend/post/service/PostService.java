@@ -85,9 +85,7 @@ public class PostService {
     }
 
     public PostResponse createPost(UUID userId, String content, MultipartFile file) {
-        if (content != null && content.length() > 5000) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Текст допису має містити до 5000 символів");
-        }
+        content=PostRules.content(content,file);
         Post post = new Post();
         post.setUserId(userId.toString());
         post.setContent(content);

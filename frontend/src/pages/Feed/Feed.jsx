@@ -21,6 +21,7 @@ import {
 import './Feed.css';
 import './CreatePost.css'
 import { createPost, deleteComment, deletePost, getComments, getPosts, postComment, setLike as setPostLike } from "../../api/postApi.js";
+import { MAX_POST_LENGTH } from '../../api/postContract.js';
 import { getMyProfile } from '../../api/userApi.js';
 import { followUser, unfollowUser, getFollowingIds, getFollowingPosts, getSuggestedUsers } from '../../api/followApi.js';
 
@@ -87,29 +88,14 @@ function formatPostTime(value) {
 }
 
 function normalizePost(post, index = 0) {
-    const author = post.author ?? post.user ?? post.createdBy ?? {};
-    const displayName = getDisplayName({ ...author, displayName: author.displayName ?? post.authorDisplayName ?? post.displayName, name: author.name ?? post.authorName ?? post.name });
-    const username = getUsername({ ...author, username: author.username ?? post.authorUsername ?? post.username, handle: author.handle ?? post.handle }, displayName);
-
-    const id = post.id ?? post.postId ?? `${post.createdAt ?? 'post'}-${index}`;
-
+    const displayName = post.displayName || post.username || 'Видалений користувач';
     return {
-        id,
-        userId: post.userId ?? author.id,
-        displayName,
-        avatarUrl: author.avatarUrl ?? post.avatarUrl,
-        username,
-        initials: getInitials(displayName),
-        tone: avatarTones[index % avatarTones.length],
-        time: formatPostTime(post.createdAt ?? post.created_on ?? post.date),
-        text: post.content ?? post.text ?? '',
-        mediaUrl: post.mediaUrl ?? post.imageUrl ?? post.image,
-        mediaType: post.mediaType ?? 'image/jpeg',
-        replies: Number(post.repliesCount ?? post.commentsCount ?? post.commentCount ?? 0),
-        reposts: Number(post.repostsCount ?? 0),
-        likes: Number(post.likesCount ?? post.likeCount ?? post.likes ?? 0),
-        liked: Boolean(post.likedByMe),
-        views: Number(post.viewsCount ?? 0),
+        id: post.id, userId: post.userId, displayName, username: post.username || 'deleted',
+        avatarUrl: post.avatarUrl, initials: getInitials(displayName), tone: avatarTones[index % avatarTones.length],
+        time: formatPostTime(post.createdAt), text: post.content ?? '',
+        mediaUrl: post.mediaUrl, mediaType: post.mediaType,
+        replies: post.commentsCount, likes: post.likesCount, liked: post.likedByMe,
+        reposts: 0, views: 0,
     };
 }
 
@@ -303,7 +289,7 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
                 </div>
                 {post.text && <p className="post__text">{post.text}</p>}
                 {post.mediaUrl && (
-                    post.mediaType.startsWith('video/')
+                    post.mediaType?.startsWith('video/')
                         ? <video className="post__image post__video" src={post.mediaUrl} controls playsInline preload="metadata" />
                         : <img className="post__image" src={post.mediaUrl} alt={`Фото в дописі ${post.displayName}`} loading="lazy" />
                 )}
@@ -556,8 +542,8 @@ export default function Feed() {
             setPostError("Додай текст, фото або відео");
             return;
         }
-        if (postText.length > 280) {
-            setPostError('Текст має містити не більше 280 символів');
+        if (postText.length > MAX_POST_LENGTH) {
+            setPostError(`Текст має містити не більше ${MAX_POST_LENGTH} символів`);
             return;
         }
 
@@ -673,7 +659,7 @@ export default function Feed() {
                         value={postText}
                         onChange={(e) => setPostText(e.target.value)}
                         placeholder="What is happening?!"
-                        maxLength={280}
+                        maxLength={MAX_POST_LENGTH}
                         disabled={isPosting}
                     />
 
@@ -761,7 +747,7 @@ export default function Feed() {
                                         : ""
                                 }`}
                             >
-                                {postText.length}/280
+                                {postText.length}/{MAX_POST_LENGTH}
                             </span>
 
                                         <button
@@ -769,7 +755,7 @@ export default function Feed() {
                                             onClick={handleCreatePost}
                                             disabled={
                                                 (!postText.trim() && !selectedMedia) ||
-                                                postText.length > 280 ||
+                                                postText.length > MAX_POST_LENGTH ||
                                                 isPosting
                                             }
                                         >

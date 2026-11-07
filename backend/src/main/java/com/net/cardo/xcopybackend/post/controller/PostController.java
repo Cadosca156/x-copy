@@ -66,15 +66,6 @@ public class PostController {
             @RequestParam(value = "file", required = false) MultipartFile file,
             Authentication authentication
     ) {
-        boolean hasFile = file != null && !file.isEmpty();
-
-        if (content.isBlank() && !hasFile) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Додай текст, фото або відео"
-            );
-        }
-
         String email;
 
         if (authentication.getPrincipal() instanceof OidcUser oidcUser) {
@@ -91,7 +82,7 @@ public class PostController {
 
         PostResponse post = postService.createPost(
                 user.getId(),
-                content.trim(),
+                content,
                 file
         );
 

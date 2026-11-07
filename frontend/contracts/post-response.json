@@ -1,0 +1,14 @@
+{
+  "id": "contract-post",
+  "userId": "00000000-0000-0000-0000-000000000001",
+  "username": "alice",
+  "displayName": "Alice",
+  "content": "Contract post",
+  "mediaType": null,
+  "mediaUrl": null,
+  "createdAt": "2026-11-07T12:34:56",
+  "likesCount": 2,
+  "commentsCount": 3,
+  "likedByMe": false,
+  "avatarUrl": null
+}

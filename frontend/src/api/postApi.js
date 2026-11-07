@@ -1,15 +1,16 @@
 import { apiFetch } from "./api.js";
 import { feedPagePath, readFeedPage } from './feedPagination.js';
+import { postContent, readPost } from './postContract.js';
 
 export function createPost(content, file) {
     const body = new FormData();
-    body.append("content", content);
+    body.append("content", postContent(content, file));
     if (file) body.append("file", file);
 
     return apiFetch("/posts", {
         method: "POST",
         body
-    });
+    }).then(readPost);
 }
 
 export function getPosts(cursor = null) {

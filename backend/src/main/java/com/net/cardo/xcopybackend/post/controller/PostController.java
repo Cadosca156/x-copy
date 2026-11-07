@@ -1,5 +1,7 @@
 package com.net.cardo.xcopybackend.post.controller;
 
+import com.net.cardo.xcopybackend.post.dto.response.LikeState;
+
 
 import com.net.cardo.xcopybackend.post.dto.response.PostResponse;
 import com.net.cardo.xcopybackend.post.dto.response.PostWindow;
@@ -30,7 +32,7 @@ public class PostController {
     private final UserRepository userRepository;
     private final LikeService likeService;
 
-    private User cursorViewer(Authentication authentication) {
+    private User authenticatedUser(Authentication authentication) {
         if(authentication==null || !authentication.isAuthenticated()
                 || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Увійдіть в акаунт знову");
@@ -42,14 +44,14 @@ public class PostController {
     public PostWindow postWindow(@RequestParam(required=false) String cursor,@RequestParam(defaultValue="20") int size,
             @RequestParam(required=false) Integer page,Authentication authentication) {
         rejectOffset(page);
-        return postService.getPostWindow(cursorViewer(authentication).getId().toString(),cursor,size);
+        return postService.getPostWindow(authenticatedUser(authentication).getId().toString(),cursor,size);
     }
 
     @GetMapping(value="/user/{userId}",params="pagination=cursor")
     public PostWindow userPostWindow(@PathVariable String userId,@RequestParam(required=false) String cursor,
             @RequestParam(defaultValue="20") int size,@RequestParam(required=false) Integer page,Authentication authentication) {
         rejectOffset(page);
-        return postService.getUserPostWindow(userId,cursorViewer(authentication).getId().toString(),cursor,size);
+        return postService.getUserPostWindow(userId,authenticatedUser(authentication).getId().toString(),cursor,size);
     }
 
     public static void rejectOffset(Integer page) {
@@ -166,6 +168,16 @@ public class PostController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{postId}/like")
+    public LikeState like(@PathVariable String postId,Authentication authentication) {
+        return likeService.setLiked(postId,authenticatedUser(authentication).getId().toString(),true);
+    }
+    @DeleteMapping("/{postId}/like")
+    public LikeState unlike(@PathVariable String postId,Authentication authentication) {
+        return likeService.setLiked(postId,authenticatedUser(authentication).getId().toString(),false);
+    }
+
+    @Deprecated
     @PostMapping("/{postId}/like")
     public ResponseEntity<Boolean> toggleLike(
             @PathVariable String postId,

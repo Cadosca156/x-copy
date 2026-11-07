@@ -41,12 +41,14 @@ dependencies {
 }
 
 tasks.named('test') {
+    systemProperty 'app.post-cleanup.scheduling-enabled', 'false'
 	useJUnitPlatform()
 }
 
 // Run isolated tests locally without PostgreSQL, MongoDB, Redis or a Spring context.
 // The regular test/check tasks continue to run the complete suite in CI.
 tasks.register('unitTest', Test) {
+    systemProperty 'app.post-cleanup.scheduling-enabled', 'false'
     description = 'Runs isolated unit tests without external services.'
     group = 'verification'
     testClassesDirs = sourceSets.test.output.classesDirs
@@ -60,4 +62,6 @@ tasks.register('unitTest', Test) {
     exclude '**/MongoQueryIndexMigrationIntegrationTests.class'
     exclude '**/CapacityIntegrationTests.class'
     exclude '**/PostWindowQueryIntegrationTests.class'
+    exclude '**/PostCleanupIntegrationTests.class'
+    exclude '**/LikeIdempotencyIntegrationTests.class'
 }

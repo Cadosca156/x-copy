@@ -17,6 +17,7 @@ public class PostWindowRepositoryImpl implements PostWindowRepository {
     static Query query(String author,List<String> authors,FeedCursor.Position before,int limit) {
         if(limit<1 || limit>51)throw new IllegalArgumentException("Invalid post window limit");
         var query=Query.query(Criteria.where("createdAt").ne(null));
+        query.addCriteria(Criteria.where("deletionRequested").ne(true));
         if(author!=null)query.addCriteria(Criteria.where("userId").is(author));
         else if(authors!=null)query.addCriteria(Criteria.where("userId").in(authors));
         if(before!=null)query.addCriteria(new Criteria().orOperator(

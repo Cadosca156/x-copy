@@ -26,11 +26,35 @@ test('email signup, real mail code, profile, media post, comment, like and logou
         name:'pixel.png',mimeType:'image/png',
         buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jE1sAAAAASUVORK5CYII=','base64')
     });
+    const creation = page.waitForResponse(response=>new URL(response.url()).pathname==='/api/posts'&&response.request().method()==='POST');
     await page.locator('.composer-modal').getByRole('button',{name:'Post',exact:true}).click();
+    const created = await (await creation).json();
     const post = page.locator('article.post').filter({has:page.getByText(content,{exact:true})});
     await expect(post).toBeVisible();
     const image = post.locator('img.post__image');await expect(image).toBeVisible();
     await expect.poll(()=>image.evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
+    // Execute the real PUT, then lose only its response to the browser.
+    await page.route('**/api/posts/'+created.id+'/like',async route=>{
+        const response = await route.fetch();expect(response.status()).toBe(200);
+        await route.abort('failed');
+    },{times:1});
+    await post.getByRole('button',{name:'Like post',exact:true}).click();
+    await expect(post.getByRole('button',{name:'Like post',exact:true})).toBeEnabled();
+    await expect(post.getByRole('alert')).toContainText('Не вдалося підтвердити стан лайка');
+    const committed = await (await context.request.get('/api/posts?pagination=cursor')).json();
+    expect(committed.items.find(item=>item.id===created.id)).toMatchObject({likedByMe:true,likesCount:1});
+    await post.getByRole('button',{name:'Like post',exact:true}).click();
+    await expect(post.getByRole('button',{name:'Remove like',exact:true})).toBeVisible();
+    await expect(post.getByRole('alert')).toHaveCount(0);
+    for(let i=0;i<2;i++){
+        const liked = await mutate(context.request,'/api/posts/'+created.id+'/like',{method:'PUT'});
+        expect(liked.status()).toBe(200);expect(await liked.json()).toEqual({likedByMe:true,likesCount:1});
+    }
+    for(let i=0;i<2;i++){
+        const unliked = await mutate(context.request,'/api/posts/'+created.id+'/like',{method:'DELETE'});
+        expect(unliked.status()).toBe(200);expect(await unliked.json()).toEqual({likedByMe:false,likesCount:0});
+    }
+    await page.reload();await expect(post.getByRole('button',{name:'Like post',exact:true})).toBeVisible();
     await post.getByRole('button',{name:'Like post',exact:true}).click();
     await expect(post.getByRole('button',{name:'Remove like',exact:true})).toBeVisible();
     await post.locator('.post-action--reply').click();
@@ -40,9 +64,18 @@ test('email signup, real mail code, profile, media post, comment, like and logou
     page.once('dialog',dialog=>dialog.accept());
     await post.locator('.comment').getByRole('button',{name:'Видалити',exact:true}).click();
     await expect(post.getByText('E2E comment',{exact:true})).toHaveCount(0);
+    await post.getByLabel('New comment').fill('Cascade comment');
+    await post.locator('.comment-form button[type=submit]').click();
+    await expect(post.getByText('Cascade comment',{exact:true})).toBeVisible();
     await post.getByRole('button',{name:'More post options'}).click();
     page.once('dialog',dialog=>dialog.accept());
     await post.getByRole('menuitem',{name:'Видалити',exact:true}).click();await expect(post).toHaveCount(0);
+    expect((await mutate(context.request,'/api/posts/'+created.id,{method:'DELETE'})).status()).toBe(204);
+    expect((await context.request.get('/api/posts/'+created.id+'/comments')).status()).toBe(404);
+    expect((await mutate(context.request,'/api/posts/'+created.id+'/like',{method:'PUT'})).status()).toBe(404);
+    const removedLike = await mutate(context.request,'/api/posts/'+created.id+'/like',{method:'DELETE'});
+    expect(await removedLike.json()).toEqual({likedByMe:false,likesCount:0});
+    await expect.poll(async()=>(await context.request.get(created.mediaUrl)).status(),{timeout:15000}).toBe(404);
     await page.goto('/profile');
     await page.getByRole('button',{name:'Вийти з акаунту'}).click();await expect(page).toHaveURL(/\/login$/);
     const replay = await context.request.get('/api/users/me',{headers:{Cookie:'XCOPY_SESSION='+session.value}});

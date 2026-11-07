@@ -39,16 +39,15 @@ class PostOwnershipTest {
     void ownerCanDeleteTheirPost() {
         var post = ownedPost("owner");
         service.deletePost("post", "owner");
-        verify(posts).delete(post);
-        verify(media).delete("/photo.png");
+        verify(posts).requestDeletion(eq("post"),eq("owner"),any(java.time.Instant.class));
+        verifyNoInteractions(media);
         verify(cache).invalidate("owner");
     }
 
     @Test
-    void missingPostReturns404() {
+    void missingPostDeleteIsAnIdempotentSuccess() {
         when(posts.findById("missing")).thenReturn(Optional.empty());
-        var error = assertThrows(ResponseStatusException.class, () -> service.deletePost("missing", "owner"));
-        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+        service.deletePost("missing", "owner");
         verify(posts, never()).delete(any());
         verifyNoInteractions(media, cache);
     }

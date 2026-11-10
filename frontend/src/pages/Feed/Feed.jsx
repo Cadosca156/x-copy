@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import './Feed.css';
 import './CreatePost.css'
-import { createPost, deleteComment, deletePost, getComments, getPosts, postComment, setLike as setPostLike } from "../../api/postApi.js";
+import { deleteComment, deletePost, getComments, getPosts, postComment, setLike as setPostLike } from "../../api/postApi.js";
+import { createPostSubmission } from '../../api/postSubmission.js';
 import { MAX_POST_LENGTH } from '../../api/postContract.js';
 import { getMyProfile } from '../../api/userApi.js';
 import { followUser, unfollowUser, getFollowingIds, getFollowingPosts, getSuggestedUsers } from '../../api/followApi.js';
@@ -400,6 +401,7 @@ export default function Feed() {
 
     const [isComposerOpen, setIsComposerOpen] = useState(false);
     const [postText, setPostText] = useState("");
+    const [submitPost] = useState(() => createPostSubmission());
     const [isPosting, setIsPosting] = useState(false);
     const [postError, setPostError] = useState("");
 
@@ -551,7 +553,7 @@ export default function Feed() {
         setPostError("");
 
         try {
-            await createPost(content, selectedMedia?.file);
+            await submitPost(content, selectedMedia?.file);
 
             setPostText("");
             setSelectedMedia(null);

@@ -31,3 +31,6 @@ node_modules
 .amplify
 amplify_outputs*
 amplifyconfiguration*
+
+# Isolated backend changes prepared while the parent project is read-only.
+.release-hardening/

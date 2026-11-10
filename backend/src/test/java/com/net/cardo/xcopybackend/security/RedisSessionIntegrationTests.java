@@ -48,6 +48,30 @@ class RedisSessionIntegrationTests {
         user = users.saveAndFlush(user);accounts.add(user.getId());return user;
     }
 
+    @Test void staleAvatarEntityCannotRestorePasswordOrCredentialVersionAfterReset() {
+        User stale = account();
+        resets.resetPassword(resetRequest(stale));
+        stale.setAvatarUrl("/media/posts/stale-avatar.png");
+        assertThrows(org.springframework.dao.OptimisticLockingFailureException.class,
+                () -> users.saveAndFlush(stale));
+        User current = users.findById(stale.getId()).orElseThrow();
+        assertTrue(passwords.matches("new-password", current.getPassword()));
+        assertEquals(stale.getCredentialVersion() + 1, current.getCredentialVersion());
+        assertNull(current.getAvatarUrl());
+    }
+
+    @Test void initialPasswordBulkUpdateAlsoInvalidatesPreviouslyLoadedProfileEntities() {
+        User initial = new User();
+        initial.setEmail("initial-" + UUID.randomUUID() + "@example.test");
+        User stale = users.saveAndFlush(initial);accounts.add(stale.getId());
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status ->
+                assertEquals(1, users.setInitialPassword(stale.getEmail(), passwords.encode("first-password"))));
+        stale.setDisplayName("Stale profile");
+        assertThrows(org.springframework.dao.OptimisticLockingFailureException.class,
+                () -> users.saveAndFlush(stale));
+        assertTrue(passwords.matches("first-password", users.findById(stale.getId()).orElseThrow().getPassword()));
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private SessionRepositoryFilter<?> filter() {
         var filter = new SessionRepositoryFilter(repository);

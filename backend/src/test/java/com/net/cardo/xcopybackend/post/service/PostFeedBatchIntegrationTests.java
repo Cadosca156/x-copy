@@ -95,6 +95,24 @@ class PostFeedBatchIntegrationTests {
         assertEquals(0,commands.count("getMore"));
         assertEquals(1,statistics.getPrepareStatementCount());
     }
+
+    @Test void concurrentPostRetriesCommitOneMongoDocument() throws Exception {
+        String key=UUID.randomUUID().toString();
+        String id=com.net.cardo.xcopybackend.security.EphemeralAuthStore.digest(author.getId()+":"+key);
+        var start=new java.util.concurrent.CountDownLatch(1);
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(4);
+        try {
+            var futures=new ArrayList<java.util.concurrent.Future<String>>();
+            for(int i=0;i<4;i++)futures.add(executor.submit(()->{
+                assertTrue(start.await(5,java.util.concurrent.TimeUnit.SECONDS));
+                return service.createPostOnce(author.getId(),"Concurrent retry",null,key).id();
+            }));
+            start.countDown();
+            for(var future:futures)assertEquals(id,future.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(1,mongo.count(Query.query(Criteria.where("_id").is(id)),Post.class));
+            assertEquals("Concurrent retry",posts.findById(id).orElseThrow().getContent());
+        } finally {start.countDown();executor.shutdownNow();posts.deleteById(id);}
+    }
     @Test void realAggregationBoundsResultsToThePageAndKeepsViewerIsolation() {
         var ids = page.stream().map(Post::getId).toList();
         assertEquals(Set.of(new PostCount(page.get(0).getId(),2),new PostCount(page.get(1).getId(),1)),

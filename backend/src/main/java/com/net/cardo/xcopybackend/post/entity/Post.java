@@ -21,6 +21,8 @@ public class Post implements java.io.Serializable {
 
     private String content;
 
+    private String creationFingerprint;
+
     private String mediaUrl;
 
     private String mediaType;

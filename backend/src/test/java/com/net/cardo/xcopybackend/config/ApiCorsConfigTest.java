@@ -15,6 +15,18 @@ class ApiCorsConfigTest {
             .corsConfigurationSource("http://localhost:5173," + ORIGIN));
 
     @Test
+    void allowsPostRetryKeyPreflight() throws ServletException, IOException {
+        var request=new MockHttpServletRequest("OPTIONS","/api/posts");
+        request.addHeader("Origin",ORIGIN);
+        request.addHeader("Access-Control-Request-Method","POST");
+        request.addHeader("Access-Control-Request-Headers","content-type,x-xsrf-token,idempotency-key");
+        var response=new MockHttpServletResponse();
+        filter.doFilter(request,response,(req,res)->fail("Preflight must finish before authentication"));
+        assertEquals(200,response.getStatus());
+        assertTrue(response.getHeader("Access-Control-Allow-Headers").toLowerCase().contains("idempotency-key"));
+    }
+
+    @Test
     void allowsAmplifyLogin() throws ServletException, IOException {
         var request = new MockHttpServletRequest("POST", "/api/auth/login");
         request.addHeader("Origin", ORIGIN);

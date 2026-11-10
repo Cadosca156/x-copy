@@ -1,0 +1,582 @@
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/auth/service/UserService.java b/backend/src/main/java/com/net/cardo/xcopybackend/auth/service/UserService.java
+index 78c8bf2..ba52620 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/auth/service/UserService.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/auth/service/UserService.java
+@@ -57,7 +57,9 @@ public class UserService {
+                     passwordEncoder.encode(request.password())
+             );
+ 
+-            user = userRepository.save(user);
++            // Keep unverified credentials out of the account table. Google login must
++            // never inherit a password submitted by someone who does not own the email.
++            return new LoginResponse(null, twoFactorService.beginRegistration(user));
+         }
+ 
+         return new LoginResponse(user.getId(), twoFactorService.beginLogin(user));
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/config/ApiCorsConfig.java b/backend/src/main/java/com/net/cardo/xcopybackend/config/ApiCorsConfig.java
+index f42e109..fe877a0 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/config/ApiCorsConfig.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/config/ApiCorsConfig.java
+@@ -18,7 +18,7 @@ public class ApiCorsConfig {
+         configuration.setAllowedOrigins(Arrays.stream(origins.split(","))
+                 .map(String::trim).filter(origin -> !origin.isEmpty()).toList());
+         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-XSRF-TOKEN"));
++        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-XSRF-TOKEN", "Idempotency-Key"));
+         configuration.setMaxAge(3600L);
+         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+         source.registerCorsConfiguration("/api/**", configuration);
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/exception/GlobalExceptionHandler.java b/backend/src/main/java/com/net/cardo/xcopybackend/exception/GlobalExceptionHandler.java
+index 7723051..ca3ccf1 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/exception/GlobalExceptionHandler.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/exception/GlobalExceptionHandler.java
+@@ -32,6 +32,11 @@ import org.springframework.web.servlet.NoHandlerFoundException;
+ public class GlobalExceptionHandler {
+     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+ 
++    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
++    public ResponseEntity<ErrorResponse> handleConcurrentUpdate(Exception ex) {
++        return error(409, "Account changed during this request. Refresh and try again.");
++    }
++
+     private ResponseEntity<ErrorResponse> error(int status, String message) {
+         return ResponseEntity.status(status).header(HttpHeaders.CACHE_CONTROL, "no-store")
+                 .body(new ErrorResponse(message, status, System.currentTimeMillis()));
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/post/controller/PostController.java b/backend/src/main/java/com/net/cardo/xcopybackend/post/controller/PostController.java
+index b5cffa6..55d893b 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/post/controller/PostController.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/post/controller/PostController.java
+@@ -57,8 +57,12 @@ public class PostController {
+ 
+     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+     public ResponseEntity<PostResponse> createPost(@RequestParam(value = "content", defaultValue = "") String content,
+-            @RequestParam(value = "file", required = false) MultipartFile file, Authentication authentication) {
+-        return ResponseEntity.status(HttpStatus.CREATED).body(postService.createPost(authenticatedUser(authentication).getId(), content, file));
++            @RequestParam(value = "file", required = false) MultipartFile file, Authentication authentication,
++            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
++        var user=authenticatedUser(authentication);
++        return ResponseEntity.status(HttpStatus.CREATED).body(idempotencyKey==null
++                ? postService.createPost(user.getId(), content, file)
++                : postService.createPostOnce(user.getId(), content, file, idempotencyKey));
+     }
+ 
+     @GetMapping
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/post/entity/Post.java b/backend/src/main/java/com/net/cardo/xcopybackend/post/entity/Post.java
+index fd04087..cf64074 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/post/entity/Post.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/post/entity/Post.java
+@@ -21,6 +21,8 @@ public class Post implements java.io.Serializable {
+ 
+     private String content;
+ 
++    private String creationFingerprint;
++
+     private String mediaUrl;
+ 
+     private String mediaType;
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/post/service/FeedCacheService.java b/backend/src/main/java/com/net/cardo/xcopybackend/post/service/FeedCacheService.java
+index 4c30a78..a623718 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/post/service/FeedCacheService.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/post/service/FeedCacheService.java
+@@ -56,8 +56,14 @@ public class FeedCacheService {
+     public void invalidate(String authorId) {
+         // MSET changes both scopes atomically; old generations expire with the page TTL.
+         String generation = UUID.randomUUID().toString();
+-        redis.opsForValue().multiSet(Map.of(versionKey("all"),generation,
+-                versionKey("author:"+authorId),generation));
++        try {
++            redis.opsForValue().multiSet(Map.of(versionKey("all"),generation,
++                    versionKey("author:"+authorId),generation));
++        } catch (org.springframework.dao.DataAccessException unavailable) {
++            // The database mutation has already committed. Cached pages expire after 30 seconds.
++            org.slf4j.LoggerFactory.getLogger(FeedCacheService.class)
++                    .warn("Post cache invalidation unavailable; waiting for page TTL");
++        }
+     }
+     private String versionKey(String scope) { return "xcopy:post-page-generation:v2:"+scope; }
+ }
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostCleanupService.java b/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostCleanupService.java
+index ed67cb7..828a787 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostCleanupService.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostCleanupService.java
+@@ -76,7 +76,14 @@ public class PostCleanupService implements InitializingBean {
+             media.deleteOrThrow(claim.getString("mediaUrl"));
+             cache.invalidate(claim.getString("userId"));
+             // Retain the only durable cleanup reference until all previous steps succeed.
+-            posts().deleteOne(owned(claim));
++            if(claim.getString("creationFingerprint")!=null) {
++                // A retry must not recreate a deleted post. Keep only the key tombstone;
++                // removing its due timestamp also removes it from the cleanup job queue.
++                posts().replaceOne(owned(claim),new Document("_id",claim.get("_id"))
++                        .append("userId",claim.getString("userId"))
++                        .append("creationFingerprint",claim.getString("creationFingerprint"))
++                        .append("deletionRequested",true));
++            } else posts().deleteOne(owned(claim));
+         } catch(Exception failure) {
+             int attempts=((Number)claim.get("cleanupAttempts")).intValue();
+             var update=new Document("$set",new Document("cleanupNextAttemptAt",Date.from(clock.instant().plusSeconds(backoffSeconds(attempts)))))
+@@ -109,7 +116,8 @@ public class PostCleanupService implements InitializingBean {
+         var candidates=new ArrayList<Object>();
+         for(String id:references){candidates.add(id);if(ObjectId.isValid(id))candidates.add(new ObjectId(id));}
+         var existing=new HashSet<String>();
+-        if(!candidates.isEmpty())try(var parents=posts().find(new Document("_id",new Document("$in",candidates)))
++        if(!candidates.isEmpty())try(var parents=posts().find(new Document("_id",new Document("$in",candidates))
++                .append("deletionRequested",new Document("$ne",true)))
+                 .projection(new Document("_id",1)).maxTime(2,TimeUnit.SECONDS).iterator()) {
+             while(parents.hasNext())existing.add(parents.next().get("_id").toString());
+         }
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostService.java b/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostService.java
+index 4fdbd5e..115959f 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostService.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/post/service/PostService.java
+@@ -104,6 +104,65 @@ public class PostService {
+         return toResponses(List.of(savedPost), userId.toString()).get(0);
+     }
+ 
++    /** MongoDB's unique _id makes retries safe across backend processes and Redis outages. */
++    public PostResponse createPostOnce(UUID userId, String content, MultipartFile file, String key) {
++        if(key==null || !key.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
++            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid Idempotency-Key");
++        content=PostRules.content(content,file);
++        String id=com.net.cardo.xcopybackend.security.EphemeralAuthStore.digest(userId+":"+key.toLowerCase(java.util.Locale.ROOT));
++        String fingerprint=fingerprint(content,file);
++        var existing=postRepository.findById(id);
++        if(existing.isPresent())return replay(existing.get(),userId,fingerprint);
++        Post post=new Post();post.setId(id);post.setUserId(userId.toString());post.setContent(content);
++        post.setCreatedAt(LocalDateTime.now());post.setCreationFingerprint(fingerprint);
++        if(file!=null && !file.isEmpty()) {
++            var media=mediaStorageService.store(file,userId);
++            post.setMediaUrl(media.url());post.setMediaType(media.contentType());
++        }
++        Post saved;
++        try { saved=postRepository.insert(post); }
++        catch(org.springframework.dao.DuplicateKeyException concurrentRetry) {
++            // Each attempt stages a different file. Only the winning document retains its file.
++            mediaStorageService.delete(post.getMediaUrl());
++            return replay(postRepository.findById(id).orElseThrow(() -> concurrentRetry),userId,fingerprint);
++        }
++        // Other insert errors can be ambiguous: do not delete media that MongoDB may have committed.
++        // Repeating with the same key resolves the outcome using the durable document.
++        feedCacheService.invalidate(userId.toString());
++        return toResponses(List.of(saved),userId.toString()).get(0);
++    }
++
++    private PostResponse replay(Post post,UUID userId,String fingerprint) {
++        if(!userId.toString().equals(post.getUserId()) || !fingerprint.equals(post.getCreationFingerprint()))
++            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Idempotency-Key already used for another post");
++        if(post.isDeletionRequested())
++            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.GONE,"Post was deleted");
++        return toResponses(List.of(post),userId.toString()).get(0);
++    }
++
++    private String fingerprint(String content,MultipartFile file) {
++        try {
++            var digest=java.security.MessageDigest.getInstance("SHA-256");
++            digest.update(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));digest.update((byte)0);
++            if(file!=null && !file.isEmpty()) {
++                if(file.getSize()>25L*1024*1024)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE);
++                digest.update(String.valueOf(file.getContentType()).getBytes(java.nio.charset.StandardCharsets.UTF_8));digest.update((byte)0);
++                try(var input=file.getInputStream()) {
++                    byte[] buffer=new byte[8192];int count;long read=0;
++                    while((count=input.read(buffer))!=-1) {
++                        read+=count;
++                        if(read>25L*1024*1024 || read>file.getSize())throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE);
++                        digest.update(buffer,0,count);
++                    }
++                    if(read!=file.getSize())throw new java.io.IOException("Invalid upload length");
++                }
++            }
++            return java.util.HexFormat.of().formatHex(digest.digest());
++        } catch(java.io.IOException failure) {
++            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Cannot read upload",failure);
++        } catch(java.security.NoSuchAlgorithmException impossible) {throw new IllegalStateException(impossible);}
++    }
++
+     public List<PostResponse> getPosts(String currentUserId, int page, int size) {
+         var pageable = page(page, size);
+         return toResponses(feedCacheService.load("all",page,size,
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/twofactor/service/TwoFactorService.java b/backend/src/main/java/com/net/cardo/xcopybackend/twofactor/service/TwoFactorService.java
+index b711739..861c6c2 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/twofactor/service/TwoFactorService.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/twofactor/service/TwoFactorService.java
+@@ -29,18 +29,39 @@ public class TwoFactorService {
+         mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
+         return challenge;
+     }
++    public String beginRegistration(User pending) {
++        store.limit("mail-registration:"+pending.getEmail().toLowerCase(java.util.Locale.ROOT),5,Duration.ofMinutes(15));
++        String challenge=EphemeralAuthStore.random(), code=generator.generateTwoFactorCode();
++        String email=java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
++                pending.getEmail().getBytes(java.nio.charset.StandardCharsets.UTF_8));
++        // The entire pending registration expires with the OTP, including its password hash.
++        store.put(key(challenge),UUID.randomUUID()+"|0|"+encoder.encode(code)+"|"+email+"|"+pending.getPassword(),Duration.ofMinutes(5));
++        mail.sendEmail(pending.getEmail(),"Verification code","Your verification code "+code);
++        return challenge;
++    }
++    private User pendingUser(String[] fields) {
++        User user=new User();
++        user.setEmail(new String(java.util.Base64.getUrlDecoder().decode(fields[3]),java.nio.charset.StandardCharsets.UTF_8));
++        user.setPassword(fields[4]);
++        // Another verified registration or Google login must not inherit pending credentials.
++        if(users.findByEmail(user.getEmail()).isPresent())throw invalid();
++        return user;
++    }
+     public void resend(String challenge) {
+         String k=key(challenge), value=store.get(k);
+         if(value==null) throw invalid();
+         String[] fields=value.split("\\|");
+-        User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
++        boolean registration=fields.length==5;
++        User user=registration?pendingUser(fields):users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
+         if(user.getCredentialVersion()!=Integer.parseInt(fields[1])) throw invalid();
+         store.limit("resend:"+k,1,Duration.ofSeconds(60));
+-        store.limit("mail-login:"+user.getId(),5,Duration.ofMinutes(15));
++        store.limit(registration?"mail-registration:"+user.getEmail().toLowerCase(java.util.Locale.ROOT):"mail-login:"+user.getId(),5,Duration.ofMinutes(15));
+         String code=generator.generateTwoFactorCode();
+-        if(!store.replace(k,value,fields[0]+"|"+fields[1]+"|"+encoder.encode(code))) throw invalid();
++        fields[2]=encoder.encode(code);
++        if(!store.replace(k,value,String.join("|",fields))) throw invalid();
+         mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
+     }
++    @org.springframework.transaction.annotation.Transactional
+     public LoginProof verifyCode(String challenge,String code) {
+         String k=key(challenge), value=store.get(k);
+         if(value==null) throw invalid();
+@@ -49,8 +70,10 @@ public class TwoFactorService {
+         if(code==null || !code.matches("[0-9]{6}")) throw invalid();
+         String[] fields=value.split("\\|");
+         if(!encoder.matches(code,fields[2])) throw invalid();
+-        User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
++        boolean registration=fields.length==5;
++        User user=registration?pendingUser(fields):users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
+         if(user.getCredentialVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
++        if(registration)user=users.saveAndFlush(user);
+         return LoginProof.from(user);
+     }
+ }
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/user/entity/User.java b/backend/src/main/java/com/net/cardo/xcopybackend/user/entity/User.java
+index ed0cdec..ca72dd0 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/user/entity/User.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/user/entity/User.java
+@@ -33,4 +33,9 @@ public class User {
+ 
+     @Column(name = "token_version", nullable = false, columnDefinition = "integer default 0")
+     private int credentialVersion;
++
++    // Prevent stale profile/avatar entities from restoring credentials changed by another request.
++    @Version
++    @Column(name = "row_version", nullable = false, columnDefinition = "bigint default 0")
++    private long rowVersion;
+ }
+diff --git a/backend/src/main/java/com/net/cardo/xcopybackend/user/repository/UserRepository.java b/backend/src/main/java/com/net/cardo/xcopybackend/user/repository/UserRepository.java
+index 4217ee0..2516853 100644
+--- a/backend/src/main/java/com/net/cardo/xcopybackend/user/repository/UserRepository.java
++++ b/backend/src/main/java/com/net/cardo/xcopybackend/user/repository/UserRepository.java
+@@ -21,7 +21,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
+     boolean existsByUsernameIgnoreCase(String username);
+ 
+     @Modifying(clearAutomatically = true, flushAutomatically = true)
+-    @Query("update User u set u.password = :password where u.email = :email "
++    @Query("update User u set u.password = :password, u.rowVersion = u.rowVersion + 1 where u.email = :email "
+             + "and (u.password is null or trim(u.password) = '')")
+     int setInitialPassword(@Param("email") String email, @Param("password") String encodedPassword);
+ 
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/auth/service/UserServiceTest.java b/backend/src/test/java/com/net/cardo/xcopybackend/auth/service/UserServiceTest.java
+index 9cb5591..1c942d6 100644
+--- a/backend/src/test/java/com/net/cardo/xcopybackend/auth/service/UserServiceTest.java
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/auth/service/UserServiceTest.java
+@@ -32,6 +32,19 @@ class UserServiceTest {
+         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+     }
+ 
++    @Test
++    void registrationDoesNotPersistUnverifiedCredentials() {
++        when(users.findByEmail("new@example.test")).thenReturn(Optional.empty());
++        when(twoFactor.beginRegistration(any())).thenReturn("pending-challenge");
++        var result=service.loginOrRegister(new LoginRequest("new@example.test", "new-password"));
++        assertNull(result.getUserId());
++        verify(users, never()).save(any());
++        verify(users, never()).saveAndFlush(any());
++        verify(twoFactor).beginRegistration(argThat(pending -> pending.getId()==null
++                && pending.getEmail().equals("new@example.test")
++                && passwords.matches("new-password",pending.getPassword())));
++    }
++
+     @Test
+     void acceptsCorrectPasswordAndSendsVerificationCode() {
+         var result = service.loginOrRegister(new LoginRequest(user.getEmail(), "correct-password"));
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/config/ApiCorsConfigTest.java b/backend/src/test/java/com/net/cardo/xcopybackend/config/ApiCorsConfigTest.java
+index 76cfd3c..80f3804 100644
+--- a/backend/src/test/java/com/net/cardo/xcopybackend/config/ApiCorsConfigTest.java
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/config/ApiCorsConfigTest.java
+@@ -14,6 +14,18 @@ class ApiCorsConfigTest {
+     private final CorsFilter filter = new CorsFilter(new ApiCorsConfig()
+             .corsConfigurationSource("http://localhost:5173," + ORIGIN));
+ 
++    @Test
++    void allowsPostRetryKeyPreflight() throws ServletException, IOException {
++        var request=new MockHttpServletRequest("OPTIONS","/api/posts");
++        request.addHeader("Origin",ORIGIN);
++        request.addHeader("Access-Control-Request-Method","POST");
++        request.addHeader("Access-Control-Request-Headers","content-type,x-xsrf-token,idempotency-key");
++        var response=new MockHttpServletResponse();
++        filter.doFilter(request,response,(req,res)->fail("Preflight must finish before authentication"));
++        assertEquals(200,response.getStatus());
++        assertTrue(response.getHeader("Access-Control-Allow-Headers").toLowerCase().contains("idempotency-key"));
++    }
++
+     @Test
+     void allowsAmplifyLogin() throws ServletException, IOException {
+         var request = new MockHttpServletRequest("POST", "/api/auth/login");
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/FeedCacheServiceTest.java b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/FeedCacheServiceTest.java
+index 746ed00..72c211b 100644
+--- a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/FeedCacheServiceTest.java
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/FeedCacheServiceTest.java
+@@ -58,4 +58,10 @@ class FeedCacheServiceTest {
+         service.load("all",0,20,()->List.of(new Post()));generations.clear();
+         assertEquals(List.of(),service.load("all",0,20,List::of));
+     }
++
++    @Test void invalidationOutageDoesNotReportAnAlreadyCommittedPostAsFailed() {
++        doThrow(new org.springframework.dao.DataAccessResourceFailureException("Redis unavailable"))
++                .when(values).multiSet(anyMap());
++        assertDoesNotThrow(()->service.invalidate("author"));
++    }
+ }
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCleanupIntegrationTests.java b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCleanupIntegrationTests.java
+index 0835e41..e2ceb12 100644
+--- a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCleanupIntegrationTests.java
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCleanupIntegrationTests.java
+@@ -61,6 +61,21 @@ class PostCleanupIntegrationTests {
+         assertFalse(Files.exists(directory.resolve(post.getMediaUrl().substring("/media/posts/".length()))));
+         assertEquals("0 0",Files.readString(directory.resolve(".quota-v1/total")).trim());
+     }
++
++    @Test void keyedPostCleanupKeepsOnlyARetryTombstoneAndRepairsLateChildren() {
++        var post=post(false);post.setCreationFingerprint("fingerprint");mongo.save(post);mark(post);
++        worker(now).runBatch();
++        var tombstone=raw(post);
++        assertTrue(tombstone.getBoolean("deletionRequested"));
++        assertEquals("fingerprint",tombstone.getString("creationFingerprint"));
++        assertFalse(tombstone.containsKey("content"));
++        assertFalse(tombstone.containsKey("cleanupNextAttemptAt"));
++        assertNull(worker(now.plusSeconds(60)).claimNext());
++        child("likes",post.getId());child("comments",post.getId());
++        worker(now.plusSeconds(60)).runBatch();
++        assertEquals(0,children("likes",post));assertEquals(0,children("comments",post));
++        assertNotNull(raw(post));
++    }
+     @Test void cacheFailureAfterFileRemovalDoesNotLoseTheJobOrReleaseQuotaTwice() throws Exception {
+         var post=post(true);mark(post);
+         doThrow(new IllegalStateException("Redis down")).doNothing().when(cache).invalidate(owner);
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCreationRetryTest.java b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCreationRetryTest.java
+new file mode 100644
+index 0000000..cf892c4
+--- /dev/null
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostCreationRetryTest.java
+@@ -0,0 +1,67 @@
++package com.net.cardo.xcopybackend.post.service;
++
++import com.net.cardo.xcopybackend.post.entity.Post;
++import com.net.cardo.xcopybackend.post.repository.*;
++import com.net.cardo.xcopybackend.user.repository.UserRepository;
++import java.util.*;
++import java.util.concurrent.atomic.AtomicReference;
++import org.junit.jupiter.api.Test;
++import org.springframework.dao.*;
++import org.springframework.web.server.ResponseStatusException;
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.Mockito.*;
++
++class PostCreationRetryTest {
++    private final PostRepository posts=mock(PostRepository.class);
++    private final LikeRepository likes=mock(LikeRepository.class);
++    private final CommentRepository comments=mock(CommentRepository.class);
++    private final UserRepository users=mock(UserRepository.class);
++    private final MediaStorageService media=mock(MediaStorageService.class);
++    private final PostService service=new PostService(posts,likes,comments,users,media,FeedCacheTestSupport.passthrough());
++    private final UUID owner=UUID.randomUUID();
++    private final String key=UUID.randomUUID().toString();
++
++    @Test void retryAfterLostResponseReturnsOriginalPostAndRejectsChangedContent() {
++        var saved=new AtomicReference<Post>();
++        when(posts.findById(anyString())).thenAnswer(i->Optional.ofNullable(saved.get()));
++        when(posts.insert(any(Post.class))).thenAnswer(i->{saved.set(i.getArgument(0));return saved.get();});
++        var first=service.createPostOnce(owner,"text",null,key);
++        assertEquals(first.id(),service.createPostOnce(owner,"text",null,key).id());
++        assertEquals(409,assertThrows(ResponseStatusException.class,()->service.createPostOnce(owner,"changed",null,key)).getStatusCode().value());
++        verify(posts,times(1)).insert(any(Post.class));
++        verify(posts,never()).save(any());
++    }
++
++    @Test void ambiguousInsertAcknowledgementIsResolvedByRetryWithoutAnotherPost() {
++        var saved=new AtomicReference<Post>();
++        when(posts.findById(anyString())).thenAnswer(i->Optional.ofNullable(saved.get()));
++        when(posts.insert(any(Post.class))).thenAnswer(i->{saved.set(i.getArgument(0));throw new DataAccessResourceFailureException("acknowledgement lost");});
++        assertThrows(DataAccessResourceFailureException.class,()->service.createPostOnce(owner,"text",null,key));
++        assertEquals(saved.get().getId(),service.createPostOnce(owner,"text",null,key).id());
++        verify(posts,times(1)).insert(any(Post.class));
++        verifyNoInteractions(media);
++    }
++
++    @Test void concurrentDuplicateInsertReturnsTheWinner() {
++        var winner=new AtomicReference<Post>();
++        when(posts.findById(anyString())).thenAnswer(i->Optional.ofNullable(winner.get()));
++        when(posts.insert(any(Post.class))).thenAnswer(i->{winner.set(i.getArgument(0));throw new DuplicateKeyException("concurrent winner");});
++        assertEquals("text",service.createPostOnce(owner,"text",null,key).content());
++        verify(posts,times(1)).insert(any(Post.class));
++    }
++
++    @Test void malformedKeyDoesNotReachStorage() {
++        assertThrows(ResponseStatusException.class,()->service.createPostOnce(owner,"text",null,"invalid"));
++        verifyNoInteractions(posts,media);
++    }
++
++    @Test void retryCannotRecreateADeletedPost() {
++        var saved=new AtomicReference<Post>();
++        when(posts.findById(anyString())).thenAnswer(i->Optional.ofNullable(saved.get()));
++        when(posts.insert(any(Post.class))).thenAnswer(i->{saved.set(i.getArgument(0));return saved.get();});
++        service.createPostOnce(owner,"text",null,key);
++        saved.get().setDeletionRequested(true);
++        assertEquals(410,assertThrows(ResponseStatusException.class,()->service.createPostOnce(owner,"text",null,key)).getStatusCode().value());
++        verify(posts,times(1)).insert(any(Post.class));
++    }
++}
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostFeedBatchIntegrationTests.java b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostFeedBatchIntegrationTests.java
+index ff0f70c..8026b24 100644
+--- a/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostFeedBatchIntegrationTests.java
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/post/service/PostFeedBatchIntegrationTests.java
+@@ -95,6 +95,24 @@ class PostFeedBatchIntegrationTests {
+         assertEquals(0,commands.count("getMore"));
+         assertEquals(1,statistics.getPrepareStatementCount());
+     }
++
++    @Test void concurrentPostRetriesCommitOneMongoDocument() throws Exception {
++        String key=UUID.randomUUID().toString();
++        String id=com.net.cardo.xcopybackend.security.EphemeralAuthStore.digest(author.getId()+":"+key);
++        var start=new java.util.concurrent.CountDownLatch(1);
++        var executor=java.util.concurrent.Executors.newFixedThreadPool(4);
++        try {
++            var futures=new ArrayList<java.util.concurrent.Future<String>>();
++            for(int i=0;i<4;i++)futures.add(executor.submit(()->{
++                assertTrue(start.await(5,java.util.concurrent.TimeUnit.SECONDS));
++                return service.createPostOnce(author.getId(),"Concurrent retry",null,key).id();
++            }));
++            start.countDown();
++            for(var future:futures)assertEquals(id,future.get(15,java.util.concurrent.TimeUnit.SECONDS));
++            assertEquals(1,mongo.count(Query.query(Criteria.where("_id").is(id)),Post.class));
++            assertEquals("Concurrent retry",posts.findById(id).orElseThrow().getContent());
++        } finally {start.countDown();executor.shutdownNow();posts.deleteById(id);}
++    }
+     @Test void realAggregationBoundsResultsToThePageAndKeepsViewerIsolation() {
+         var ids = page.stream().map(Post::getId).toList();
+         assertEquals(Set.of(new PostCount(page.get(0).getId(),2),new PostCount(page.get(1).getId(),1)),
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/security/RedisSessionIntegrationTests.java b/backend/src/test/java/com/net/cardo/xcopybackend/security/RedisSessionIntegrationTests.java
+index 5fba684..08f4341 100644
+--- a/backend/src/test/java/com/net/cardo/xcopybackend/security/RedisSessionIntegrationTests.java
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/security/RedisSessionIntegrationTests.java
+@@ -48,6 +48,30 @@ class RedisSessionIntegrationTests {
+         user = users.saveAndFlush(user);accounts.add(user.getId());return user;
+     }
+ 
++    @Test void staleAvatarEntityCannotRestorePasswordOrCredentialVersionAfterReset() {
++        User stale = account();
++        resets.resetPassword(resetRequest(stale));
++        stale.setAvatarUrl("/media/posts/stale-avatar.png");
++        assertThrows(org.springframework.dao.OptimisticLockingFailureException.class,
++                () -> users.saveAndFlush(stale));
++        User current = users.findById(stale.getId()).orElseThrow();
++        assertTrue(passwords.matches("new-password", current.getPassword()));
++        assertEquals(stale.getCredentialVersion() + 1, current.getCredentialVersion());
++        assertNull(current.getAvatarUrl());
++    }
++
++    @Test void initialPasswordBulkUpdateAlsoInvalidatesPreviouslyLoadedProfileEntities() {
++        User initial = new User();
++        initial.setEmail("initial-" + UUID.randomUUID() + "@example.test");
++        User stale = users.saveAndFlush(initial);accounts.add(stale.getId());
++        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status ->
++                assertEquals(1, users.setInitialPassword(stale.getEmail(), passwords.encode("first-password"))));
++        stale.setDisplayName("Stale profile");
++        assertThrows(org.springframework.dao.OptimisticLockingFailureException.class,
++                () -> users.saveAndFlush(stale));
++        assertTrue(passwords.matches("first-password", users.findById(stale.getId()).orElseThrow().getPassword()));
++    }
++
+     @SuppressWarnings({"rawtypes", "unchecked"})
+     private SessionRepositoryFilter<?> filter() {
+         var filter = new SessionRepositoryFilter(repository);
+diff --git a/backend/src/test/java/com/net/cardo/xcopybackend/twofactor/service/PendingRegistrationTest.java b/backend/src/test/java/com/net/cardo/xcopybackend/twofactor/service/PendingRegistrationTest.java
+new file mode 100644
+index 0000000..0e67e80
+--- /dev/null
++++ b/backend/src/test/java/com/net/cardo/xcopybackend/twofactor/service/PendingRegistrationTest.java
+@@ -0,0 +1,68 @@
++package com.net.cardo.xcopybackend.twofactor.service;
++
++import com.net.cardo.xcopybackend.email.EmailService;
++import com.net.cardo.xcopybackend.security.EphemeralAuthStore;
++import com.net.cardo.xcopybackend.user.entity.User;
++import com.net.cardo.xcopybackend.user.repository.UserRepository;
++import java.util.*;
++import org.junit.jupiter.api.Test;
++import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
++import org.springframework.web.server.ResponseStatusException;
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.Mockito.*;
++
++class PendingRegistrationTest {
++    private final EphemeralAuthStore store=mock(EphemeralAuthStore.class);
++    private final EmailService mail=mock(EmailService.class);
++    private final UserRepository users=mock(UserRepository.class);
++    private final BCryptPasswordEncoder encoder=new BCryptPasswordEncoder(4);
++    private final TwoFactorCodeGenerator generator=mock(TwoFactorCodeGenerator.class);
++    private final TwoFactorService service=new TwoFactorService(mail,generator,users,store,encoder);
++
++    private String pending(String challenge) {
++        String email=Base64.getUrlEncoder().withoutPadding().encodeToString("owner@example.test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
++        String value=UUID.randomUUID()+"|0|"+encoder.encode("123456")+"|"+email+"|"+encoder.encode("pending-password");
++        when(store.get("security:challenge:"+EphemeralAuthStore.digest(challenge))).thenReturn(value);
++        return value;
++    }
++
++    @Test void createsAccountOnlyAfterCorrectCodeAndAtomicConsumption() {
++        String challenge=EphemeralAuthStore.random(), value=pending(challenge);
++        when(store.consume(anyString(),eq(value))).thenReturn(true);
++        when(users.saveAndFlush(any())).thenAnswer(i->{User user=i.getArgument(0);user.setId(UUID.randomUUID());return user;});
++        var proof=service.verifyCode(challenge,"123456");
++        assertNotNull(proof.userId());
++        verify(users).saveAndFlush(argThat(u->u.getEmail().equals("owner@example.test") && encoder.matches("pending-password",u.getPassword())));
++    }
++
++    @Test void wrongCodeOrConsumedChallengeCannotPersistAnAccount() {
++        String challenge=EphemeralAuthStore.random();pending(challenge);
++        assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"000000"));
++        assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"123456"));
++        verify(users,never()).saveAndFlush(any());
++    }
++
++    @Test void googleAccountCreatedDuringRegistrationNeverInheritsPendingPassword() {
++        String challenge=EphemeralAuthStore.random();pending(challenge);
++        User google=new User();google.setId(UUID.randomUUID());google.setEmail("owner@example.test");
++        when(users.findByEmail(google.getEmail())).thenReturn(Optional.of(google));
++        assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"123456"));
++        assertThrows(ResponseStatusException.class,()->service.resend(challenge));
++        assertNull(google.getPassword());
++        verify(users,never()).saveAndFlush(any());
++        verifyNoInteractions(mail);
++    }
++
++    @Test void resendPreservesPendingCredentialsAndCannotExtendExpiry() {
++        String challenge=EphemeralAuthStore.random(), value=pending(challenge);
++        when(generator.generateTwoFactorCode()).thenReturn("654321");
++        when(store.replace(anyString(),eq(value),anyString())).thenReturn(true);
++        service.resend(challenge);
++        String[] original=value.split("\\|");
++        verify(store).replace(anyString(),eq(value),argThat(next->{
++            String[] fields=next.split("\\|");return fields.length==5 && fields[0].equals(original[0])
++                    && fields[3].equals(original[3]) && fields[4].equals(original[4]) && encoder.matches("654321",fields[2]);
++        }));
++        verify(store,never()).put(anyString(),anyString(),any());
++    }
++}

@@ -29,18 +29,39 @@ public class TwoFactorService {
         mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
         return challenge;
     }
+    public String beginRegistration(User pending) {
+        store.limit("mail-registration:"+pending.getEmail().toLowerCase(java.util.Locale.ROOT),5,Duration.ofMinutes(15));
+        String challenge=EphemeralAuthStore.random(), code=generator.generateTwoFactorCode();
+        String email=java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                pending.getEmail().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // The entire pending registration expires with the OTP, including its password hash.
+        store.put(key(challenge),UUID.randomUUID()+"|0|"+encoder.encode(code)+"|"+email+"|"+pending.getPassword(),Duration.ofMinutes(5));
+        mail.sendEmail(pending.getEmail(),"Verification code","Your verification code "+code);
+        return challenge;
+    }
+    private User pendingUser(String[] fields) {
+        User user=new User();
+        user.setEmail(new String(java.util.Base64.getUrlDecoder().decode(fields[3]),java.nio.charset.StandardCharsets.UTF_8));
+        user.setPassword(fields[4]);
+        // Another verified registration or Google login must not inherit pending credentials.
+        if(users.findByEmail(user.getEmail()).isPresent())throw invalid();
+        return user;
+    }
     public void resend(String challenge) {
         String k=key(challenge), value=store.get(k);
         if(value==null) throw invalid();
         String[] fields=value.split("\\|");
-        User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
+        boolean registration=fields.length==5;
+        User user=registration?pendingUser(fields):users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
         if(user.getCredentialVersion()!=Integer.parseInt(fields[1])) throw invalid();
         store.limit("resend:"+k,1,Duration.ofSeconds(60));
-        store.limit("mail-login:"+user.getId(),5,Duration.ofMinutes(15));
+        store.limit(registration?"mail-registration:"+user.getEmail().toLowerCase(java.util.Locale.ROOT):"mail-login:"+user.getId(),5,Duration.ofMinutes(15));
         String code=generator.generateTwoFactorCode();
-        if(!store.replace(k,value,fields[0]+"|"+fields[1]+"|"+encoder.encode(code))) throw invalid();
+        fields[2]=encoder.encode(code);
+        if(!store.replace(k,value,String.join("|",fields))) throw invalid();
         mail.sendEmail(user.getEmail(),"Verification code","Your verification code "+code);
     }
+    @org.springframework.transaction.annotation.Transactional
     public LoginProof verifyCode(String challenge,String code) {
         String k=key(challenge), value=store.get(k);
         if(value==null) throw invalid();
@@ -49,8 +70,10 @@ public class TwoFactorService {
         if(code==null || !code.matches("[0-9]{6}")) throw invalid();
         String[] fields=value.split("\\|");
         if(!encoder.matches(code,fields[2])) throw invalid();
-        User user=users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
+        boolean registration=fields.length==5;
+        User user=registration?pendingUser(fields):users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
         if(user.getCredentialVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
+        if(registration)user=users.saveAndFlush(user);
         return LoginProof.from(user);
     }
 }

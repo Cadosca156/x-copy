@@ -104,6 +104,65 @@ public class PostService {
         return toResponses(List.of(savedPost), userId.toString()).get(0);
     }
 
+    /** MongoDB's unique _id makes retries safe across backend processes and Redis outages. */
+    public PostResponse createPostOnce(UUID userId, String content, MultipartFile file, String key) {
+        if(key==null || !key.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid Idempotency-Key");
+        content=PostRules.content(content,file);
+        String id=com.net.cardo.xcopybackend.security.EphemeralAuthStore.digest(userId+":"+key.toLowerCase(java.util.Locale.ROOT));
+        String fingerprint=fingerprint(content,file);
+        var existing=postRepository.findById(id);
+        if(existing.isPresent())return replay(existing.get(),userId,fingerprint);
+        Post post=new Post();post.setId(id);post.setUserId(userId.toString());post.setContent(content);
+        post.setCreatedAt(LocalDateTime.now());post.setCreationFingerprint(fingerprint);
+        if(file!=null && !file.isEmpty()) {
+            var media=mediaStorageService.store(file,userId);
+            post.setMediaUrl(media.url());post.setMediaType(media.contentType());
+        }
+        Post saved;
+        try { saved=postRepository.insert(post); }
+        catch(org.springframework.dao.DuplicateKeyException concurrentRetry) {
+            // Each attempt stages a different file. Only the winning document retains its file.
+            mediaStorageService.delete(post.getMediaUrl());
+            return replay(postRepository.findById(id).orElseThrow(() -> concurrentRetry),userId,fingerprint);
+        }
+        // Other insert errors can be ambiguous: do not delete media that MongoDB may have committed.
+        // Repeating with the same key resolves the outcome using the durable document.
+        feedCacheService.invalidate(userId.toString());
+        return toResponses(List.of(saved),userId.toString()).get(0);
+    }
+
+    private PostResponse replay(Post post,UUID userId,String fingerprint) {
+        if(!userId.toString().equals(post.getUserId()) || !fingerprint.equals(post.getCreationFingerprint()))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Idempotency-Key already used for another post");
+        if(post.isDeletionRequested())
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.GONE,"Post was deleted");
+        return toResponses(List.of(post),userId.toString()).get(0);
+    }
+
+    private String fingerprint(String content,MultipartFile file) {
+        try {
+            var digest=java.security.MessageDigest.getInstance("SHA-256");
+            digest.update(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));digest.update((byte)0);
+            if(file!=null && !file.isEmpty()) {
+                if(file.getSize()>25L*1024*1024)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE);
+                digest.update(String.valueOf(file.getContentType()).getBytes(java.nio.charset.StandardCharsets.UTF_8));digest.update((byte)0);
+                try(var input=file.getInputStream()) {
+                    byte[] buffer=new byte[8192];int count;long read=0;
+                    while((count=input.read(buffer))!=-1) {
+                        read+=count;
+                        if(read>25L*1024*1024 || read>file.getSize())throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE);
+                        digest.update(buffer,0,count);
+                    }
+                    if(read!=file.getSize())throw new java.io.IOException("Invalid upload length");
+                }
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch(java.io.IOException failure) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Cannot read upload",failure);
+        } catch(java.security.NoSuchAlgorithmException impossible) {throw new IllegalStateException(impossible);}
+    }
+
     public List<PostResponse> getPosts(String currentUserId, int page, int size) {
         var pageable = page(page, size);
         return toResponses(feedCacheService.load("all",page,size,

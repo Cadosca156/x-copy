@@ -21,7 +21,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByUsernameIgnoreCase(String username);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update User u set u.password = :password where u.email = :email "
+    @Query("update User u set u.password = :password, u.rowVersion = u.rowVersion + 1 where u.email = :email "
             + "and (u.password is null or trim(u.password) = '')")
     int setInitialPassword(@Param("email") String email, @Param("password") String encodedPassword);
 

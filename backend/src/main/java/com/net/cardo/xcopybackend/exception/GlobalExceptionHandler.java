@@ -32,6 +32,11 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleConcurrentUpdate(Exception ex) {
+        return error(409, "Account changed during this request. Refresh and try again.");
+    }
+
     private ResponseEntity<ErrorResponse> error(int status, String message) {
         return ResponseEntity.status(status).header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(new ErrorResponse(message, status, System.currentTimeMillis()));

@@ -16,7 +16,7 @@ export default function Login() {
     setError('');
     setIsLoggingIn(true);
     try {
-      const data = await loginUser({ ...login, email: login.email.trim() });
+      const data = await loginUser(login);
       if (!data.challengeId) throw new Error('Сервер повернув некоректну відповідь входу');
       sessionStorage.setItem('loginChallenge', data.challengeId);
       navigate('/2fa');

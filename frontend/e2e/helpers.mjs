@@ -43,8 +43,8 @@ export async function login(page,email,secret=password) {
     await expect(page).toHaveURL(/\/(feed|setup-profile)$/);
     return challenge;
 }
-export async function register(page) {
-    const user = identity();await login(page,user.email);
+export async function register(page,user=identity()) {
+    await login(page,user.email);
     await expect(page).toHaveURL(/\/setup-profile$/);
     await page.getByLabel('Username',{exact:true}).fill(user.username);
     await page.getByLabel('Видиме ім’я',{exact:true}).fill(user.name);

@@ -30,7 +30,8 @@ public class TwoFactorService {
         return challenge;
     }
     public String beginRegistration(User pending) {
-        store.limit("mail-registration:"+pending.getEmail().toLowerCase(java.util.Locale.ROOT),5,Duration.ofMinutes(15));
+        pending.setEmail(com.net.cardo.xcopybackend.auth.EmailAddress.clean(pending.getEmail()));
+        store.limit("mail-registration:"+com.net.cardo.xcopybackend.auth.EmailAddress.key(pending.getEmail()),5,Duration.ofMinutes(15));
         String challenge=EphemeralAuthStore.random(), code=generator.generateTwoFactorCode();
         String email=java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
                 pending.getEmail().getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -41,7 +42,7 @@ public class TwoFactorService {
     }
     private User pendingUser(String[] fields) {
         User user=new User();
-        user.setEmail(new String(java.util.Base64.getUrlDecoder().decode(fields[3]),java.nio.charset.StandardCharsets.UTF_8));
+        user.setEmail(com.net.cardo.xcopybackend.auth.EmailAddress.clean(new String(java.util.Base64.getUrlDecoder().decode(fields[3]),java.nio.charset.StandardCharsets.UTF_8)));
         user.setPassword(fields[4]);
         // Another verified registration or Google login must not inherit pending credentials.
         if(users.findByEmail(user.getEmail()).isPresent())throw invalid();
@@ -55,7 +56,7 @@ public class TwoFactorService {
         User user=registration?pendingUser(fields):users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
         if(user.getCredentialVersion()!=Integer.parseInt(fields[1])) throw invalid();
         store.limit("resend:"+k,1,Duration.ofSeconds(60));
-        store.limit(registration?"mail-registration:"+user.getEmail().toLowerCase(java.util.Locale.ROOT):"mail-login:"+user.getId(),5,Duration.ofMinutes(15));
+        store.limit(registration?"mail-registration:"+com.net.cardo.xcopybackend.auth.EmailAddress.key(user.getEmail()):"mail-login:"+user.getId(),5,Duration.ofMinutes(15));
         String code=generator.generateTwoFactorCode();
         fields[2]=encoder.encode(code);
         if(!store.replace(k,value,String.join("|",fields))) throw invalid();
@@ -73,7 +74,18 @@ public class TwoFactorService {
         boolean registration=fields.length==5;
         User user=registration?pendingUser(fields):users.findById(UUID.fromString(fields[0])).orElseThrow(this::invalid);
         if(user.getCredentialVersion()!=Integer.parseInt(fields[1]) || !store.consume(k,value)) throw invalid();
-        if(registration)user=users.saveAndFlush(user);
+        if(registration) {
+            try { user=users.saveAndFlush(user); }
+            catch(org.springframework.dao.DataIntegrityViolationException failure) {
+                // A verified registration races only on account identity; never overwrite an existing password.
+                for(Throwable cause=failure;cause!=null;cause=cause.getCause()) {
+                    if(cause instanceof org.hibernate.exception.ConstraintViolationException constraint
+                            && "23505".equals(constraint.getSQLState()))
+                        throw new com.net.cardo.xcopybackend.exception.exceptions.EmailAlreadyExistsException("Цей email уже зареєстрований. Увійдіть в акаунт або відновіть пароль.");
+                }
+                throw failure;
+            }
+        }
         return LoginProof.from(user);
     }
 }

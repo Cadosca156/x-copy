@@ -35,7 +35,7 @@ public class AccountPasswordService {
                     "Пароль має містити щонайменше 8 символів і не перевищувати 72 байти.");
         }
         // A conditional update prevents simultaneous requests from replacing a password.
-        if (users.setInitialPassword(email, passwords.encode(password)) != 1) {
+        if (users.setInitialPassword(com.net.cardo.xcopybackend.auth.EmailAddress.key(email), passwords.encode(password)) != 1) {
             throw new ResponseStatusException(CONFLICT,
                     "Пароль уже задано. Оновіть сторінку, щоб продовжити.");
         }

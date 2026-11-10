@@ -8,7 +8,7 @@ import lombok.Setter;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = @UniqueConstraint(name = "users_email_key_unique", columnNames = "email_key"))
 @Getter
 @Setter
 public class User {
@@ -19,6 +19,15 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(name = "email_key", nullable = false, length = 512)
+    private String emailKey;
+
+    @PrePersist @PreUpdate
+    private void synchronizeEmailIdentity() {
+        email = com.net.cardo.xcopybackend.auth.EmailAddress.clean(email);
+        emailKey = com.net.cardo.xcopybackend.auth.EmailAddress.key(email);
+    }
 
     @Column(unique = true, length = 30)
     private String username;

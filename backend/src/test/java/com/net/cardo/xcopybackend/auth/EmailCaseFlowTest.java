@@ -79,4 +79,30 @@ class EmailCaseFlowTest {
         assertThrows(ResponseStatusException.class,()->service.verifyCode(challenge,"123456"));
         verify(users,never()).saveAndFlush(any());assertNull(user.getPassword());
     }
+
+    @Test void aConcurrentVerifiedRegistrationReturnsAnEmailConflictInsteadOfOverwritingCredentials() {
+        var service=registrationWithConstraint("23505");
+        assertThrows(com.net.cardo.xcopybackend.exception.exceptions.EmailAlreadyExistsException.class,
+                ()->service.verifyCode(registrationChallenge,"123456"));
+    }
+
+    @Test void unrelatedDatabaseIntegrityFailuresAreNotReportedAsDuplicateEmails() {
+        var service=registrationWithConstraint("23502");
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+                ()->service.verifyCode(registrationChallenge,"123456"));
+    }
+
+    private String registrationChallenge;
+    private TwoFactorService registrationWithConstraint(String state) {
+        registrationChallenge=EphemeralAuthStore.random();
+        String key="security:challenge:"+EphemeralAuthStore.digest(registrationChallenge);
+        String email=Base64.getUrlEncoder().withoutPadding().encodeToString("New@Example.TEST".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String value=UUID.randomUUID()+"|0|otp-hash|"+email+"|pending-password";
+        when(store.get(key)).thenReturn(value);when(store.consume(key,value)).thenReturn(true);
+        when(passwords.matches("123456","otp-hash")).thenReturn(true);
+        var constraint=new org.hibernate.exception.ConstraintViolationException("constraint",new java.sql.SQLException("constraint",state),"users_email_key_unique");
+        when(users.saveAndFlush(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("constraint",constraint));
+        return new TwoFactorService(mock(EmailService.class),mock(TwoFactorCodeGenerator.class),users,store,passwords);
+    }
+
 }

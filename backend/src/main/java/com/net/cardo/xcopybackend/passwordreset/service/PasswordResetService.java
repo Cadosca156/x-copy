@@ -37,8 +37,8 @@ public class PasswordResetService {
      @org.springframework.scheduling.annotation.Async("securityMailExecutor")
      public void forgotPassword(ForgotPasswordRequest request) {
         if(request==null || request.email()==null || request.email().isBlank()) return;
-        String email=request.email().trim();
-        securityStore.limit("forgot:"+email.toLowerCase(java.util.Locale.ROOT),3,java.time.Duration.ofMinutes(15));
+        String email=com.net.cardo.xcopybackend.auth.EmailAddress.clean(request.email());
+        securityStore.limit("forgot:"+com.net.cardo.xcopybackend.auth.EmailAddress.key(email),3,java.time.Duration.ofMinutes(15));
         Optional<User> userEmail = userRepository.findByEmail(email);
 
         if (userEmail.isEmpty()) {

@@ -64,4 +64,6 @@ tasks.register('unitTest', Test) {
     exclude '**/PostCleanupIntegrationTests.class'
     exclude '**/LikeIdempotencyIntegrationTests.class'
     exclude '**/RedisSessionIntegrationTests.class'
+    exclude '**/EmailIdentityIntegrationTests.class'
+    exclude '**/EmailMigrationIntegrationTests.class'
 }

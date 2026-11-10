@@ -1,4 +1,5 @@
 import { apiRequest } from './api.js';
+import { emailInput } from './emailInput.js';
 
 export async function sendemail(email) {
     try {
@@ -8,7 +9,7 @@ export async function sendemail(email) {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                email: email
+                email: emailInput(email)
             }),
         });
 

@@ -23,15 +23,16 @@ public class UserService {
     private final com.net.cardo.xcopybackend.security.EphemeralAuthStore securityStore;
 
     public LoginResponse loginOrRegister(LoginRequest request) {
-        if(request==null || request.email()==null || request.email().length()>254 || !request.email().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") ||
+        String email = com.net.cardo.xcopybackend.auth.EmailAddress.clean(request == null ? null : request.email());
+        if(request==null || email==null || email.length()>254 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") ||
            request.password()==null || request.password().isBlank() || request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72) {
             throw new InvalidLoginRequestException();
         }
-        securityStore.limit("password:"+request.email().toLowerCase(java.util.Locale.ROOT),10,java.time.Duration.ofMinutes(15));
+        securityStore.limit("password:"+com.net.cardo.xcopybackend.auth.EmailAddress.key(email),10,java.time.Duration.ofMinutes(15));
 
 
         Optional<User> optionalUser =
-                userRepository.findByEmail(request.email());
+                userRepository.findByEmail(email);
 
         User user;
 
@@ -52,7 +53,7 @@ public class UserService {
             if(request.password().length()<8) throw new InvalidPasswordException("Пароль має містити щонайменше 8 символів");
             user = new User();
 
-            user.setEmail(request.email());
+            user.setEmail(email);
             user.setPassword(
                     passwordEncoder.encode(request.password())
             );

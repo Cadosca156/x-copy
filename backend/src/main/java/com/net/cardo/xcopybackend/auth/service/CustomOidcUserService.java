@@ -22,8 +22,8 @@ public class CustomOidcUserService extends OidcUserService {
 
         OidcUser oidcUser = super.loadUser(OidcUserRequest);
 
-        String email = oidcUser.getAttribute("email");
-        if (email == null || !Boolean.TRUE.equals(oidcUser.getAttribute("email_verified"))) throw new org.springframework.security.oauth2.core.OAuth2AuthenticationException("Google email is not verified");
+        String email = com.net.cardo.xcopybackend.auth.EmailAddress.clean(oidcUser.getAttribute("email"));
+        if (email == null || email.isBlank() || !Boolean.TRUE.equals(oidcUser.getAttribute("email_verified"))) throw new org.springframework.security.oauth2.core.OAuth2AuthenticationException("Google email is not verified");
 
 
 

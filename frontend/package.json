@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/api/accountSetup.test.mjs src/api/passwordResetApi.test.mjs src/api/api.test.mjs src/api/feedPagination.test.mjs src/api/likeApi.test.mjs src/api/postContract.test.mjs",
+    "test": "node --test src/api/accountSetup.test.mjs src/api/passwordResetApi.test.mjs src/api/api.test.mjs src/api/feedPagination.test.mjs src/api/likeApi.test.mjs src/api/postContract.test.mjs src/api/emailInput.test.mjs",
     "preview": "vite preview",
     "test:e2e": "node e2e/run.mjs"
   },

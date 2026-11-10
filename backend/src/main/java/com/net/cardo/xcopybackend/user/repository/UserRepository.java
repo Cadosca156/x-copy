@@ -15,15 +15,23 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("select u from User u where u.id <> :viewer and u.username is not null and trim(u.username) <> '' order by u.username, u.id")
     java.util.List<User> findFollowSuggestions(@Param("viewer") UUID viewer, org.springframework.data.domain.Pageable pageable);
 
-    boolean existsByEmail(String email);
-    Optional<User> findByEmail(String email);
+    default boolean existsByEmail(String email) {
+        String key = com.net.cardo.xcopybackend.auth.EmailAddress.key(email);
+        return key != null && existsByEmailKey(key);
+    }
+    default Optional<User> findByEmail(String email) {
+        String key = com.net.cardo.xcopybackend.auth.EmailAddress.key(email);
+        return key == null ? Optional.empty() : findByEmailKey(key);
+    }
+    boolean existsByEmailKey(String emailKey);
+    Optional<User> findByEmailKey(String emailKey);
     Optional<User> findById(UUID userId);
     boolean existsByUsernameIgnoreCase(String username);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update User u set u.password = :password, u.rowVersion = u.rowVersion + 1 where u.email = :email "
+    @Query("update User u set u.password = :password, u.rowVersion = u.rowVersion + 1 where u.emailKey = :emailKey "
             + "and (u.password is null or trim(u.password) = '')")
-    int setInitialPassword(@Param("email") String email, @Param("password") String encodedPassword);
+    int setInitialPassword(@Param("emailKey") String emailKey, @Param("password") String encodedPassword);
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")

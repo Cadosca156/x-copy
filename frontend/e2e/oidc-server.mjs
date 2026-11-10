@@ -5,7 +5,7 @@ const issuer = 'http://127.0.0.1:19090';
 const {privateKey,publicKey} = generateKeyPairSync('rsa',{modulusLength:2048});
 const publicJwk = {...publicKey.export({format:'jwk'}),kid:'e2e-key',alg:'RS256',use:'sig'};
 const codes = new Map();
-const identity = {sub:'google-e2e-subject',email:'google-e2e@example.test',email_verified:true,name:'Google E2E'};
+const identity = {sub:'google-e2e-subject',email:'Google-E2E@Example.TEST',email_verified:true,name:'Google E2E'};
 function json(response,data,status=200) {
     response.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});
     response.end(JSON.stringify(data));

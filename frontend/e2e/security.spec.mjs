@@ -14,7 +14,9 @@ test.beforeEach(async({page})=>{
 test.afterEach(async({page})=>expect(pageErrors.get(page)).toEqual([]));
 
 test('email signup, real mail code, profile, media post, comment, like and logout',async({page,context})=>{
-    await register(page);
+    const identityData = identity();
+    await register(page,{...identityData,email:identityData.email.toUpperCase()});
+    const originalAccount = await (await context.request.get('/api/users/me')).json();
     const cookies = await context.cookies();const session = cookies.find(cookie=>cookie.name==='XCOPY_SESSION_ID');
     expect(session?.httpOnly).toBe(true);expect(session.sameSite).toBe('Lax');
     expect(session.path).toBe('/');expect(session.value).toMatch(/^[0-9a-f-]{36}$/i);
@@ -81,6 +83,9 @@ test('email signup, real mail code, profile, media post, comment, like and logou
     await page.getByRole('button',{name:'Вийти з акаунту'}).click();await expect(page).toHaveURL(/\/login$/);
     const replay = await context.request.get('/api/users/me',{headers:{Cookie:'XCOPY_SESSION_ID='+session.value}});
     expect(replay.status()).toBe(401);
+    await login(page,identityData.email.toLowerCase());
+    await expect(page).toHaveURL(/\/feed$/);
+    expect((await (await context.request.get('/api/users/me')).json()).id).toBe(originalAccount.id);
 });
 
 test('password reset uses real mail, revokes both devices, rejects reuse and permits the new password',async({page,context,browser})=>{
@@ -91,7 +96,7 @@ test('password reset uses real mail, revokes both devices, rejects reuse and per
     const otherPage = await other.newPage();await login(otherPage,user.email);
     await expect(otherPage).toHaveURL(/\/feed$/);
     await page.goto('/reset-password-email');
-    await page.getByLabel('Email',{exact:true}).fill(user.email);
+    await page.getByLabel('Email',{exact:true}).fill(user.email.toUpperCase());
     const forgot = page.waitForResponse(response=>response.url().endsWith('/api/auth/password/forgot')&&response.request().method()==='POST');
     await page.getByRole('button',{name:'Продовжити',exact:true}).click();
     expect((await forgot).status()).toBe(202);

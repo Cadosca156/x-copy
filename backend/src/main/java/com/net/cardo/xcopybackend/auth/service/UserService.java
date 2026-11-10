@@ -57,7 +57,9 @@ public class UserService {
                     passwordEncoder.encode(request.password())
             );
 
-            user = userRepository.save(user);
+            // Keep unverified credentials out of the account table. Google login must
+            // never inherit a password submitted by someone who does not own the email.
+            return new LoginResponse(null, twoFactorService.beginRegistration(user));
         }
 
         return new LoginResponse(user.getId(), twoFactorService.beginLogin(user));

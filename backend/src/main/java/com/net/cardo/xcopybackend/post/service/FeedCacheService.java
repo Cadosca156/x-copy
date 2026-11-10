@@ -56,8 +56,14 @@ public class FeedCacheService {
     public void invalidate(String authorId) {
         // MSET changes both scopes atomically; old generations expire with the page TTL.
         String generation = UUID.randomUUID().toString();
-        redis.opsForValue().multiSet(Map.of(versionKey("all"),generation,
-                versionKey("author:"+authorId),generation));
+        try {
+            redis.opsForValue().multiSet(Map.of(versionKey("all"),generation,
+                    versionKey("author:"+authorId),generation));
+        } catch (org.springframework.dao.DataAccessException unavailable) {
+            // The database mutation has already committed. Cached pages expire after 30 seconds.
+            org.slf4j.LoggerFactory.getLogger(FeedCacheService.class)
+                    .warn("Post cache invalidation unavailable; waiting for page TTL");
+        }
     }
     private String versionKey(String scope) { return "xcopy:post-page-generation:v2:"+scope; }
 }

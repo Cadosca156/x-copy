@@ -33,4 +33,9 @@ public class User {
 
     @Column(name = "token_version", nullable = false, columnDefinition = "integer default 0")
     private int credentialVersion;
+
+    // Prevent stale profile/avatar entities from restoring credentials changed by another request.
+    @Version
+    @Column(name = "row_version", nullable = false, columnDefinition = "bigint default 0")
+    private long rowVersion;
 }

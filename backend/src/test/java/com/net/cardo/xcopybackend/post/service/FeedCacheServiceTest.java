@@ -58,4 +58,10 @@ class FeedCacheServiceTest {
         service.load("all",0,20,()->List.of(new Post()));generations.clear();
         assertEquals(List.of(),service.load("all",0,20,List::of));
     }
+
+    @Test void invalidationOutageDoesNotReportAnAlreadyCommittedPostAsFailed() {
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("Redis unavailable"))
+                .when(values).multiSet(anyMap());
+        assertDoesNotThrow(()->service.invalidate("author"));
+    }
 }

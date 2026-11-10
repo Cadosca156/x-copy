@@ -61,6 +61,21 @@ class PostCleanupIntegrationTests {
         assertFalse(Files.exists(directory.resolve(post.getMediaUrl().substring("/media/posts/".length()))));
         assertEquals("0 0",Files.readString(directory.resolve(".quota-v1/total")).trim());
     }
+
+    @Test void keyedPostCleanupKeepsOnlyARetryTombstoneAndRepairsLateChildren() {
+        var post=post(false);post.setCreationFingerprint("fingerprint");mongo.save(post);mark(post);
+        worker(now).runBatch();
+        var tombstone=raw(post);
+        assertTrue(tombstone.getBoolean("deletionRequested"));
+        assertEquals("fingerprint",tombstone.getString("creationFingerprint"));
+        assertFalse(tombstone.containsKey("content"));
+        assertFalse(tombstone.containsKey("cleanupNextAttemptAt"));
+        assertNull(worker(now.plusSeconds(60)).claimNext());
+        child("likes",post.getId());child("comments",post.getId());
+        worker(now.plusSeconds(60)).runBatch();
+        assertEquals(0,children("likes",post));assertEquals(0,children("comments",post));
+        assertNotNull(raw(post));
+    }
     @Test void cacheFailureAfterFileRemovalDoesNotLoseTheJobOrReleaseQuotaTwice() throws Exception {
         var post=post(true);mark(post);
         doThrow(new IllegalStateException("Redis down")).doNothing().when(cache).invalidate(owner);

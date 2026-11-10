@@ -57,8 +57,12 @@ public class PostController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PostResponse> createPost(@RequestParam(value = "content", defaultValue = "") String content,
-            @RequestParam(value = "file", required = false) MultipartFile file, Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(postService.createPost(authenticatedUser(authentication).getId(), content, file));
+            @RequestParam(value = "file", required = false) MultipartFile file, Authentication authentication,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        var user=authenticatedUser(authentication);
+        return ResponseEntity.status(HttpStatus.CREATED).body(idempotencyKey==null
+                ? postService.createPost(user.getId(), content, file)
+                : postService.createPostOnce(user.getId(), content, file, idempotencyKey));
     }
 
     @GetMapping

@@ -76,7 +76,14 @@ public class PostCleanupService implements InitializingBean {
             media.deleteOrThrow(claim.getString("mediaUrl"));
             cache.invalidate(claim.getString("userId"));
             // Retain the only durable cleanup reference until all previous steps succeed.
-            posts().deleteOne(owned(claim));
+            if(claim.getString("creationFingerprint")!=null) {
+                // A retry must not recreate a deleted post. Keep only the key tombstone;
+                // removing its due timestamp also removes it from the cleanup job queue.
+                posts().replaceOne(owned(claim),new Document("_id",claim.get("_id"))
+                        .append("userId",claim.getString("userId"))
+                        .append("creationFingerprint",claim.getString("creationFingerprint"))
+                        .append("deletionRequested",true));
+            } else posts().deleteOne(owned(claim));
         } catch(Exception failure) {
             int attempts=((Number)claim.get("cleanupAttempts")).intValue();
             var update=new Document("$set",new Document("cleanupNextAttemptAt",Date.from(clock.instant().plusSeconds(backoffSeconds(attempts)))))
@@ -109,7 +116,8 @@ public class PostCleanupService implements InitializingBean {
         var candidates=new ArrayList<Object>();
         for(String id:references){candidates.add(id);if(ObjectId.isValid(id))candidates.add(new ObjectId(id));}
         var existing=new HashSet<String>();
-        if(!candidates.isEmpty())try(var parents=posts().find(new Document("_id",new Document("$in",candidates)))
+        if(!candidates.isEmpty())try(var parents=posts().find(new Document("_id",new Document("$in",candidates))
+                .append("deletionRequested",new Document("$ne",true)))
                 .projection(new Document("_id",1)).maxTime(2,TimeUnit.SECONDS).iterator()) {
             while(parents.hasNext())existing.add(parents.next().get("_id").toString());
         }

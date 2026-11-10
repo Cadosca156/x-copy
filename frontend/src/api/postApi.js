@@ -2,13 +2,14 @@ import { apiFetch } from "./api.js";
 import { feedPagePath, readFeedPage } from './feedPagination.js';
 import { postContent, readPost } from './postContract.js';
 
-export function createPost(content, file) {
+export function createPost(content, file, idempotencyKey) {
     const body = new FormData();
     body.append("content", postContent(content, file));
     if (file) body.append("file", file);
 
     return apiFetch("/posts", {
         method: "POST",
+        headers: { 'Idempotency-Key': idempotencyKey ?? crypto.randomUUID() },
         body
     }).then(readPost);
 }

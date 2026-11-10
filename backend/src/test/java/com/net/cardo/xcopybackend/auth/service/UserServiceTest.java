@@ -33,6 +33,19 @@ class UserServiceTest {
     }
 
     @Test
+    void registrationDoesNotPersistUnverifiedCredentials() {
+        when(users.findByEmail("new@example.test")).thenReturn(Optional.empty());
+        when(twoFactor.beginRegistration(any())).thenReturn("pending-challenge");
+        var result=service.loginOrRegister(new LoginRequest("new@example.test", "new-password"));
+        assertNull(result.getUserId());
+        verify(users, never()).save(any());
+        verify(users, never()).saveAndFlush(any());
+        verify(twoFactor).beginRegistration(argThat(pending -> pending.getId()==null
+                && pending.getEmail().equals("new@example.test")
+                && passwords.matches("new-password",pending.getPassword())));
+    }
+
+    @Test
     void acceptsCorrectPasswordAndSendsVerificationCode() {
         var result = service.loginOrRegister(new LoginRequest(user.getEmail(), "correct-password"));
         assertEquals(user.getId(), result.getUserId());

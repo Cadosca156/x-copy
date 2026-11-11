@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Camera, Home, LogOut, UserRound, X } from 'lucide-react';
 import Avatar from '../../components/Avatar.jsx';
+import PostTime from '../../components/PostTime.jsx';
 import { getMyProfile, updateMyAvatar, updateMyProfile } from '../../api/userApi.js';
 import { getUserPosts } from '../../api/postApi.js';
 import { apiFetch } from '../../api/api.js';
@@ -164,7 +165,11 @@ export default function Profile() {
                     {posts.map(post => <article className="post" key={post.id}>
                         <Avatar person={profile} />
                         <div className="post__content">
-                            <div className="profile-post-meta"><strong>{profile.displayName}</strong><span>@{profile.username}</span>{post.createdAt && <time dateTime={post.createdAt}>{new Date(post.createdAt).toLocaleDateString('uk-UA')}</time>}</div>
+                            <div className="profile-post-meta">
+                                <strong>{profile.displayName}</strong>
+                                <span>@{profile.username}</span>
+                                <PostTime createdAt={post.createdAt} />
+                            </div>
                             {post.content && <p className="post__text">{post.content}</p>}
                             {post.mediaUrl && (post.mediaType?.startsWith('video/') ? <video className="post__image" src={post.mediaUrl} controls playsInline preload="metadata" /> : <img className="post__image" src={post.mediaUrl} alt="Фото в дописі" loading="lazy" />)}
                         </div>

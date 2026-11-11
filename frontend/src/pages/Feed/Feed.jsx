@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from '../../components/Avatar.jsx';
+import PostTime from '../../components/PostTime.jsx';
 import {
     Bell,
     Bookmark,
@@ -73,7 +74,7 @@ function getInitials(displayName) {
     return displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'U';
 }
 
-function formatPostTime(value) {
+function formatCommentTime(value) {
     if (!value) return '';
 
     const date = new Date(value);
@@ -93,7 +94,7 @@ function normalizePost(post, index = 0) {
     return {
         id: post.id, userId: post.userId, displayName, username: post.username || 'deleted',
         avatarUrl: post.avatarUrl, initials: getInitials(displayName), tone: avatarTones[index % avatarTones.length],
-        time: formatPostTime(post.createdAt), text: post.content ?? '',
+        createdAt: post.createdAt, text: post.content ?? '',
         mediaUrl: post.mediaUrl, mediaType: post.mediaType,
         replies: post.commentsCount, likes: post.likesCount, liked: post.likedByMe,
         reposts: 0, views: 0,
@@ -110,7 +111,7 @@ function normalizeComment(comment, index = 0) {
         displayName,
         username,
         text: comment.content ?? comment.text ?? comment.message ?? '',
-        time: formatPostTime(comment.createdAt ?? comment.created_on ?? comment.date),
+        time: formatCommentTime(comment.createdAt ?? comment.created_on ?? comment.date),
     };
 }
 
@@ -261,8 +262,10 @@ function Post({ post, currentUserId, onDelete, isFollowing, followPending, onFol
                 <div className="post__meta">
                     <span className="post__name">{post.displayName}</span>
                     <span className="post__handle">@{post.username}</span>
-                    <span className="post__dot">·</span>
-                    <time className="post__time">{post.time}</time>
+                    {post.createdAt && <>
+                        <span className="post__dot">·</span>
+                        <PostTime className="post__time" createdAt={post.createdAt} />
+                    </>}
                     {currentUserId && post.userId && !isOwnPost && post.username !== 'deleted' && <button
                         type="button" className={`post-follow ${isFollowing ? 'is-following' : ''}`}
                         disabled={followPending} onClick={() => onFollow(post.userId)}
